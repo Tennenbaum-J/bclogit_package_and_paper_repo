@@ -6,7 +6,7 @@ Authors@R: c(
     person("Bryan", "Nevarez", email = "Bryan.Nevarez@qc.cuny.edu", role = c("aut")),
     person("Adam", "Kapelner", email = "kapelner@qc.cuny.edu", role = c("aut"), comment = c(ORCID = "0000-0001-5985-6792"))
     )
-Description: What the package does (one paragraph).
+Description: Conditional Logistic Regression with Informative Priors
 License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
 Encoding: UTF-8

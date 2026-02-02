@@ -4,3 +4,4 @@
 process_matched_pairs_cpp <- function(strata, y, X, treatment = NULL) {
     .Call(`_bclogit_process_matched_pairs_cpp`, strata, y, X, treatment)
 }
+

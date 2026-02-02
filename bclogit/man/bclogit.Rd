@@ -25,39 +25,64 @@ bclogit(x, ...)
 \method{bclogit}{formula}(formula, data, treatment = NULL, strata = NULL, ...)
 }
 \arguments{
+\item{...}{Additional arguments passed to the default method.}
+
 \item{response}{A binary (0,1) vector containing the response of each subject.}
 
-\item{data}{A data.frame, data.table, or model.matrix containing the variables.}
+\item{data}{An optional data frame containing the variables in the model.}
 
-\item{treatment}{A binary (0,1) vector containing whether each subject is treatment or control.}
+\item{treatment}{Optional vector specifying the treatment variable.}
 
-\item{strata}{Numeric vector indexing the matched pairs and the reservoir. Entries indexed with zero, are added to the reservoir. Entries indexed with the same number are part of the same strata.}
+\item{strata}{Vector specifying the strata (matched pairs).}
 
 \item{concordant_method}{The method to use for fitting the concordant pairs and reservoir. Options are "GLM", "GEE", and "GLMM".}
 
 \item{prior_type}{The type of prior to use for the discordant pairs. Options are "naive", "G prior", "PMP", and "hybrid".}
 
 \item{treatment_name}{Optional string name for the treatment variable.}
+
+\item{formula}{A symbolic description of the model to be fitted.}
 }
 \value{
-A list of class \code{bclogit}.
+A list of class \code{bclogit} containing:
+\item{coefficients}{Estimated coefficients (posterior means).}
+\item{var}{Variance-covariance matrix of coefficients.}
+\item{model}{The fitted Stan model object.}
+\item{prior_info}{Information about the prior derived from concordant pairs.}
+\item{call}{The function call.}
+\item{terms}{The model terms.}
+\item{num_discordant}{Number of discordant pairs used.}
+\item{num_concordant}{Number of concordant pairs/reservoir entries used.}
 }
 \description{
 bclogit
+
+This function fits a conditional logistic regression model, potentially incorporating
+information from concordant pairs to improve estimation.
 }
 \details{
 Fits a conditional logistic regression model to incidence data. Allows for use of the concordant pairs in the fitting.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{bclogit(default)}: Default method
+\item \code{bclogit(default)}: Default method for matrix/data input.
 
 \item \code{bclogit(formula)}: Formula method
 
 }}
+\examples{
+\dontrun{
+# Example usage
+fit <- bclogit(y ~ x1 + x2, data = mydata, treatment = trt, strata = id)
+summary(fit)
+}
+}
 \references{
 \if{html}{\out{<div class="sourceCode">}}\preformatted{paper to go here
 }\if{html}{\out{</div>}}
+}
+\seealso{
+\code{\link{summary.bclogit}}, \code{\link{predict.bclogit}}
 }
 \author{
 \if{html}{\out{<div class="sourceCode">}}\preformatted{	Jacob Tennenbaum \email{Jacob.Tennenbaum51@qmail.cuny.edu}

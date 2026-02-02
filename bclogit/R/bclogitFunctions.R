@@ -1,27 +1,45 @@
 #' Initialize a new bclogit model
 #'
+#' This function fits a conditional logistic regression model, incorporating
+#' information from concordant pairs to improve estimation.
+#'
 #' @param response A binary (0,1) vector containing the response of each subject.
 #' @param data A data.frame, data.table, or model.matrix containing the variables.
 #' @param treatment A binary (0,1) vector containing whether each subject is treatment or control.
 #' @param strata Numeric vector indexing the matched pairs and the reservoir. Entries indexed with zero, are added to the reservoir. Entries indexed with the same number are part of the same strata.
 #' @param concordant_method The method to use for fitting the concordant pairs and reservoir. Options are "GLM", "GEE", and "GLMM".
 #' @param prior_type The type of prior to use for the discordant pairs. Options are "naive", "G prior", "PMP", and "hybrid".
-#' @return A list of class `bclogit`.
+#' @return A list of class `bclogit` containing:
+#'   \item{coefficients}{Estimated coefficients (posterior means).}
+#'   \item{var}{Variance-covariance matrix of coefficients.}
+#'   \item{model}{The fitted Stan model object.}
+#'   \item{prior_info}{Information about the prior derived from concordant pairs.}
+#'   \item{call}{The function call.}
+#'   \item{terms}{The model terms.}
+#'   \item{num_discordant}{Number of discordant pairs used.}
+#'   \item{num_concordant}{Number of concordant pairs/reservoir entries used.}
+#' @seealso \code{\link{summary.bclogit}}, \code{\link{predict.bclogit}}
+#' @examples
+#' \dontrun{
+#' # Example usage
+#' fit <- bclogit(y ~ x1 + x2, data = mydata, treatment = trt, strata = id)
+#' summary(fit)
+#' }
 #' @export
 bclogit <- function(x, ...) {
   UseMethod("bclogit")
 }
 
 #' @param treatment_name Optional string name for the treatment variable.
-#' @describeIn bclogit Default method
+#' @describeIn bclogit Default method for matrix/data input.
 #' @export
 bclogit.default <- function(response = NULL,
-                    data = NULL,
-                    treatment = NULL,
-                    strata = NULL,
-                    concordant_method = "GEE",
-                    prior_type = "hybrid",
-                    treatment_name = NULL) {
+                            data = NULL,
+                            treatment = NULL,
+                            strata = NULL,
+                            concordant_method = "GEE",
+                            prior_type = "hybrid",
+                            treatment_name = NULL) {
   # ------------------------------------------------------------------------
   # 1. Input Validation and Pre-processing
   # ------------------------------------------------------------------------
@@ -50,7 +68,7 @@ bclogit.default <- function(response = NULL,
       stop("Treatment must be binary 0 or 1.")
     }
     if (is.null(treatment_name)) {
-        treatment_name <- deparse(substitute(treatment))
+      treatment_name <- deparse(substitute(treatment))
     }
   }
   assertNumeric(strata, any.missing = FALSE, len = n)
@@ -170,6 +188,14 @@ bclogit.default <- function(response = NULL,
     }
   }
 
+  print("changes loaded")
+  # Sanitize priors to ensure no NA values are passed
+  if (exists("b_con") && any(is.na(b_con))) {
+    b_con[is.na(b_con)] <- 0
+  }
+  if (exists("Sigma_con") && any(is.na(Sigma_con))) {
+    Sigma_con[is.na(Sigma_con)] <- 100
+  }
 
   discordant_model <- NULL
   converged_discordant <- NULL

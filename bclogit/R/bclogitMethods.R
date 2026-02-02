@@ -1,4 +1,8 @@
-
+#' @param formula A symbolic description of the model to be fitted.
+#' @param data An optional data frame containing the variables in the model.
+#' @param treatment Optional vector specifying the treatment variable.
+#' @param strata Vector specifying the strata (matched pairs).
+#' @param ... Additional arguments passed to the default method.
 #' @export
 #' @describeIn bclogit Formula method
 bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL, ...) {
@@ -7,33 +11,39 @@ bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL, ...)
   cl <- cl[c(1L, m)]
   cl[[1L]] <- quote(stats::model.frame)
   mf <- eval(cl, parent.frame())
-  
+
   response <- model.response(mf, "numeric")
   mt <- attr(mf, "terms")
   X <- model.matrix(mt, mf)
-  
+
   if (colnames(X)[1] == "(Intercept)") {
-      X <- X[, -1, drop = FALSE]
+    X <- X[, -1, drop = FALSE]
   }
-  
+
   if (missing(data)) data <- environment(formula)
 
   trt_vec <- eval(substitute(treatment), data, parent.frame())
   strata_vec <- eval(substitute(strata), data, parent.frame())
-  
+
   # Extract treatment name from call
   # We use the full match.call() which has all arguments
   full_cl <- match.call()
   if ("treatment" %in% names(full_cl)) {
-      t_name <- deparse(full_cl$treatment)
-      # Clean up if it's long or complex? usually deparse is fine.
+    t_name <- deparse(full_cl$treatment)
+    # Clean up if it's long or complex? usually deparse is fine.
   } else {
-      t_name <- "treatment"
+    t_name <- "treatment"
   }
-  
+
   bclogit.default(response = response, data = X, treatment = trt_vec, strata = strata_vec, treatment_name = t_name, ...)
 }
 
+#' Summarize a bclogit model
+#'
+#' @param object A `bclogit` object.
+#' @param conf.level Confidence level for credible intervals (default 0.95).
+#' @param ... Additional arguments (not used).
+#' @return A `summary.bclogit` object containing coefficients, standard errors, and credible intervals.
 #' @export
 summary.bclogit <- function(object, conf.level = 0.95, ...) {
   if (is.null(object$model)) {
@@ -91,6 +101,11 @@ summary.bclogit <- function(object, conf.level = 0.95, ...) {
   res
 }
 
+#' Print summary of a bclogit model
+#'
+#' @param x A `summary.bclogit` object.
+#' @param digits Number of significant digits to print.
+#' @param ... Additional arguments.
 #' @export
 print.summary.bclogit <- function(x, digits = 4, ...) {
   cat("\nCall:\n")
@@ -110,16 +125,31 @@ print.summary.bclogit <- function(x, digits = 4, ...) {
   invisible(x)
 }
 
+#' Extract coefficients from a bclogit model
+#'
+#' @param object A `bclogit` object.
+#' @param ... Additional arguments.
+#' @return Numeric vector of coefficients.
 #' @export
 coef.bclogit <- function(object, ...) {
   object$coefficients
 }
 
+#' Extract variance-covariance matrix from a bclogit model
+#'
+#' @param object A `bclogit` object.
+#' @param ... Additional arguments.
+#' @return A matrix of the estimated covariance of the coefficients.
 #' @export
 vcov.bclogit <- function(object, ...) {
   object$var
 }
 
+#' Extract model formula
+#'
+#' @param x A `bclogit` object.
+#' @param ... Additional arguments.
+#' @return The formula used in the model.
 #' @export
 formula.bclogit <- function(x, ...) {
   if (!is.null(x$terms)) {
@@ -129,6 +159,15 @@ formula.bclogit <- function(x, ...) {
   }
 }
 
+#' Credible Intervals for bclogit Parameters
+#'
+#' Computes Bayesian credible intervals for the model parameters.
+#'
+#' @param object A `bclogit` object.
+#' @param parm A specification of which parameters to be given credible intervals, either a vector of numbers or a vector of names. If missing, all parameters are considered.
+#' @param level The confidence level required (default 0.95).
+#' @param ... Additional arguments.
+#' @return A matrix (or vector) with columns giving lower and upper confidence limits for each parameter.
 #' @export
 confint.bclogit <- function(object, parm, level = 0.95, ...) {
   if (is.null(object$model)) {
@@ -142,9 +181,9 @@ confint.bclogit <- function(object, parm, level = 0.95, ...) {
   } else {
     beta_post <- cbind(as.vector(sims$beta_w), sims$beta_nuis)
   }
-  
+
   if (ncol(beta_post) == length(object$coefficients)) {
-      colnames(beta_post) <- names(object$coefficients)
+    colnames(beta_post) <- names(object$coefficients)
   }
 
   if (missing(parm)) {
@@ -152,15 +191,15 @@ confint.bclogit <- function(object, parm, level = 0.95, ...) {
   } else if (is.numeric(parm)) {
     parm <- names(object$coefficients)[parm]
   }
-  
+
   present_parms <- intersect(parm, colnames(beta_post))
   if (length(present_parms) == 0) {
-      stop("No parameters found matching the 'parm' argument.")
+    stop("No parameters found matching the 'parm' argument.")
   }
 
   alpha <- (1 - level) / 2
   probs <- c(alpha, 1 - alpha)
-  
+
   ci <- apply(beta_post[, present_parms, drop = FALSE], 2, quantile, probs = probs)
   t(ci)
 }
