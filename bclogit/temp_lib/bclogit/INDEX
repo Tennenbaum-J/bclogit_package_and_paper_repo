@@ -1,0 +1,9 @@
+bclogit                 Conditional Logistic Regression with Optional
+                        Concordant pairs
+coef.bclogit            Extract coefficients from a bclogit model
+confint.bclogit         Credible Intervals for bclogit Parameters
+formula.bclogit         Extract model formula
+print.summary.bclogit   Print summary of a bclogit model
+summary.bclogit         Summarize a bclogit model
+vcov.bclogit            Extract variance-covariance matrix from a
+                        bclogit model

@@ -1,18 +1,36 @@
-pacman::p_load(dplyr, tidyr, data.table, doFuture, future, doRNG, foreach, progressr, doParallel, nbpMatching, doParallel, ggplot2, geepack, glmmTMB, rstan, binaryMM, rstanarm) # doParallel
+pacman::p_load(dplyr, tidyr, data.table, doFuture, future, doRNG, foreach, progressr, doParallel, nbpMatching, doParallel, ggplot2, geepack, glmmTMB, rstan) # doParallel
 
 if (!require("bclogit", character.only = TRUE)) {
   remotes::install_local("bclogit", dependencies = FALSE, force = TRUE, upgrade = "never")
   library(bclogit)
 }
 
-data(diabetic, package="survival")
+install.packages("riskCommunicator")
+library(riskCommunicator)
+data("framingham")
+D=data.table(framingham)
+D=D[!is.na(CIGPDAY)]
+D=D[!is.na(BMI)]
+D=D[!is.na(HEARTRTE)]
+D=D[!is.na(TOTCHOL)]
+D=D[!is.na(SYSBP)]
+D=D[!is.na(DIABP)]
+D=D[!is.na(CURSMOKE)]
+D=D[!is.na(DIABETES)]
+D=D[!is.na(BPMEDS)]
+
+Dba = D[PERIOD %in% c(1,3)]
+Dba[, num_periods_per_id := .N, by = RANDID]
+Dba = Dba[num_periods_per_id == 2]
+Dba[, num_periods_per_id := NULL]
+
 
 
 
 num_cores <- availableCores() - 6
 Nsim <- 100
 external_nsim <- 100000
-ns <- c(100, 250, 394)
+ns <- c(5038)
 
 # Bayesian_prior_for_betaTs = c(TRUE, FALSE)
 sm <- rstan::stan_model("mvn_logistic.stan")
@@ -32,21 +50,20 @@ params <- params %>%
 
 Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type, concordant_fit) {
   if (concordant_fit == "GLM") {
-    fit_con <- glm(y_con ~ X_con, family = "binomial")
+    fit_con <- glm(y_con ~ w_con + X_con, family = "binomial")
     b_con <- summary(fit_con)$coefficients[, 1]
     Sigma_con <- pmin(vcov(fit_con), 20)
     eps <- 1e-6 # added for stabilibty
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
     
-    b_con <- c(0, b_con[-c(1:3)])
-    #Sigma_con <- Sigma_con[-1, -1]
+    b_con <- c(0, b_con[-c(1:2)])
+    Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
     Sigma_con[1, 1] <- 20
   } else if (concordant_fit == "GEE") {
-    strat_con <- rep(1:(nrow(X_con) / 2), each = 2)
     fit_con <- geeglm(
-      y_con ~  X_con,
+      y_con ~  w_con + X_con,
       id = strat_con,
       family = binomial(link = "logit"),
       corstr = "exchangeable",
@@ -58,16 +75,14 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     eps <- 1e-6 # added for stabilibty
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
     
-    b_con <- c(0, b_con[-c(1:3)])
-    #Sigma_con <- Sigma_con[-1, -1]
+    b_con <- c(0, b_con[-c(1:2)])
+    Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
     Sigma_con[1, 1] <- 20
   } else if (concordant_fit == "GLMM") {
-    strat_con <- rep(1:(nrow(X_con) / 2), each = 2)
-    
     fit_con <- glmmTMB(
-      y_con ~  X_con + (1 | strat_con),
+      y_con ~  w_con + X_con + (1 | strat_con),
       family = binomial(),
       data   = data.frame(y_con, w_con, X_con, strat_con)
     )
@@ -77,8 +92,8 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     eps <- 1e-6 # added for stabilibty
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
     
-    b_con <- c(0, b_con[-c(1:3)])
-    #Sigma_con <- Sigma_con[-1, -1]
+    b_con <- c(0, b_con[-c(1:2)])
+    Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
     Sigma_con[1, 1] <- 20
@@ -109,7 +124,7 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     discordant_model <- tryCatch(
       {
         # for other aphas you would need to get the posterior for treatment effect and take the quarantines of that. you can get that from: post <- rstan::extract(fit); w_samples <- post$beta[, 1]
-        summary(rstan::sampling(sm, data = data_list, refresh = 0, chains = 1))$summary["beta[1]", c("mean", "sd", "2.5%", "97.5%")]
+        rstan::summary(rstan::sampling(sm, data = data_list, refresh = 0, chains = 1))$summary["beta[1]", c("mean", "sd", "2.5%", "97.5%")]
       },
       error = function(e) {
         warning(sprintf("stan_glm failed: %s", e$message))
@@ -138,7 +153,7 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     discordant_model <- tryCatch(
       {
         # for other aphas you would need to get the posterior for treatment effect and take the quarantines of that. you can get that from: post <- rstan::extract(fit); w_samples <- post$beta[, 1]
-        summary(rstan::sampling(sm_g, data = data_list, refresh = 0, chains = 1))$summary["beta[1]", c("mean", "sd", "2.5%", "97.5%")]
+        rstan::summary(rstan::sampling(sm_g, data = data_list, refresh = 0, chains = 1))$summary["beta[1]", c("mean", "sd", "2.5%", "97.5%")]
       },
       error = function(e) {
         warning(sprintf("stan_glm failed: %s", e$message))
@@ -163,7 +178,7 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     discordant_model <- tryCatch(
       {
         # for other aphas you would need to get the posterior for treatment effect and take the quarantines of that. you can get that from: post <- rstan::extract(fit); w_samples <- post$beta[, 1]
-        summary(rstan::sampling(sm_PMP, data = data_list, refresh = 0, chains = 1))$summary["beta_w", c("mean", "sd", "2.5%", "97.5%")]
+        rstan::summary(rstan::sampling(sm_PMP, data = data_list, refresh = 0, chains = 1))$summary["beta_w", c("mean", "sd", "2.5%", "97.5%")]
       },
       error = function(e) {
         warning(sprintf("stan_glm failed: %s", e$message))
@@ -200,7 +215,7 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     
     discordant_model <- tryCatch(
       {
-        summary(rstan::sampling(sm_hybrid, data = data_list, refresh = 0, chains = 1))$summary["beta_w", c("mean", "sd", "2.5%", "97.5%")]
+        rstan::summary(rstan::sampling(sm_hybrid, data = data_list, refresh = 0, chains = 1))$summary["beta_w", c("mean", "sd", "2.5%", "97.5%")]
       },
       error = function(e) {
         warning(sprintf("Hybrid PMP failed: %s", e$message))
@@ -248,6 +263,7 @@ Do_Inference <- function(y, X, w, strat, n) {
   y_dis <- matched_data$y_diffs_discordant
   w_dis <- matched_data$treatment_diffs_discordant
   dis_idx <- matched_data$discordant_idx + 1
+  strat_con = strat[setdiff(1:n, dis_idx)]
   
   discordant_viabele <- if (length(y_dis) > ncol(X) + 7) {
     TRUE
@@ -284,7 +300,8 @@ Do_Inference <- function(y, X, w, strat, n) {
   ssq_beta_hat_T <- NA
   pval <- NA
   if (TRUE) {
-    model <- summary(glm(y ~ w + X, family = "binomial"))$coefficients[2, c(1, 2)]
+    df = data.frame(y = y, w = w, X)
+    model <- summary(glm(y ~ ., data = df, family = "binomial"))$coefficients[2, c(1, 2)]
     beta_hat_T <- model[1]
     ssq_beta_hat_T <- model[2]
     pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
@@ -330,7 +347,7 @@ Do_Inference <- function(y, X, w, strat, n) {
       fit_tmb <- glmmTMB(
         y ~ X + w + (1 | strat),
         family = binomial(),
-        data   = data.frame(y, X, w, strat)
+        data   = data.frame(y, as.data.frame(X), w, strat)
       )
       model <- summary(fit_tmb)$coefficients$cond["w", c("Estimate", "Std. Error")]
       beta_hat_T <- model[1]
@@ -357,14 +374,14 @@ Do_Inference <- function(y, X, w, strat, n) {
   pval <- NA
   tryCatch(
     {
+      X_matrix <- as.matrix(cbind(w, X))
       fit_gee <- geeglm(
-        y ~ X + w,
+        y ~ X_matrix,
         id = strat,
         family = binomial(link = "logit"),
-        corstr = "exchangeable",
-        data = data.frame(y, X, w, strat)
+        corstr = "exchangeable"
       )
-      model <- summary(fit_gee)$coefficients["w", c("Estimate", "Std.err")]
+      model <- summary(fit_gee)$coefficients["X_matrixw", c("Estimate", "Std.err")]
       beta_hat_T <- as.numeric(model[1])
       ssq_beta_hat_T <- as.numeric(model[2])
       pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
@@ -387,17 +404,13 @@ Do_Inference <- function(y, X, w, strat, n) {
 
 Run_sim <- function(n) {
   BIG_res <- data.frame()
-  y <- array(NA, n)
-  probs <- array(NA, n)
   
-  pairs = sample(unique(diabetic$id), size = n/2)
-  current_data = diabetic[diabetic$id %in% pairs, , drop = TRUE]
-  strat = current_data$id
-  w = current_data$trt
-  y = current_data$status
-  X = current_data[, c("eye", "risk", "time")]
-  X$eye = factor(X$eye)
-  X = model.matrix(~ 0 + ., X)
+  pairs = sample(unique(Dba$RANDID), size = n/2)
+  current_data = Dba[Dba$RANDID %in% pairs, , drop = TRUE]
+  strat = current_data$RANDID
+  w = ifelse(current_data$PERIOD == 1, 1, 0)
+  y = current_data$PREVCHD 
+  X = current_data[, c("TOTCHOL", "SYSBP", "DIABP", "CURSMOKE", "CIGPDAY", "BMI", "DIABETES", "BPMEDS", "HEARTRTE")]
   
   one_res <- Do_Inference(y, X, w, strat, n)
   BIG_res <- rbind(BIG_res, one_res)

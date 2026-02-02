@@ -788,7 +788,7 @@ plan(sequential)
 
 ############### COMPILE RESULTS ###############
 
-results_2 <- read.csv("C:/temp/clogitR_kap_test_from_scratch/100_1no_intercept.csv")
+results <- read.csv("C:/temp/clogitR_kap_test_from_scratch/100_1no_intercept.csv")
 
 sum <- 1
 for (i in 2:27) {
@@ -797,7 +797,7 @@ for (i in 2:27) {
     sum <- sum + 1
     message("Reading file ", i)
     temp <- read.csv(file_path)
-    results_2 <- rbind(results_2, temp)
+    results <- rbind(results, temp)
   } else {
     message("Skipping missing file ", i)
   }
@@ -810,7 +810,7 @@ for (i in 2:27) {
 
 results$X <- NULL
 
-res_mod_2 <- results_2 %>%
+res_mod <- results %>%
   mutate(
     lower_ci = beta_hat_T - (1.96 * ssq_beta_hat_T),
     upper_ci = beta_hat_T + (1.96 * ssq_beta_hat_T),
@@ -819,15 +819,12 @@ res_mod_2 <- results_2 %>%
     rej = pval < 0.05
   ) %>%
   group_by(p, beta_T, true_funtion, regress_on_X, n, inference, X_style) %>%
-  arrange(desc(sq_err)) %>%
-  slice(-(1:200)) %>%
   summarize(
     num_na = sum(is.na(pval)),
     num_real = sum(!is.na(pval)),
     mse = mean(sq_err, na.rm = TRUE, trim = 0.1),
     percent_reject = sum(rej, na.rm = TRUE) / (n() - num_na),
     coverage = mean(covered, na.rm = TRUE),
-    mean_g = mean(g, na.rm = TRUE, trim = 0.1),
     mean_beta_hat_T = mean(beta_hat_T, na.rm = TRUE),
     mean_sq_beta_hat_T = mean(ssq_beta_hat_T, trim = 0.001, na.rm = TRUE),
     significant = binom.test(sum(rej, na.rm = TRUE), n = (n() - num_na),  p = 0.05)$p.value,
@@ -835,7 +832,7 @@ res_mod_2 <- results_2 %>%
   )
 
 
-write.csv(res_mod_2, file = "C:/temp/clogitR_kap_test_from_scratch/combined_2700_3.csv", row.names = FALSE)
+write.csv(res_mod, file = "C:/temp/clogitR_kap_test_from_scratch/combined_2700_2.csv", row.names = FALSE)
 
 
 
