@@ -37,5 +37,5 @@ bclogit.formula <- function(formula, data, treatment, strata = NULL, ...) {
         t_name <- "treatment"
     }
 
-    bclogit.default(response = response, data = X, treatment = trt_vec, strata = strata_vec, treatment_name = t_name, ...)
+    bclogit.default(response = response, data = X, treatment = trt_vec, strata = strata_vec, treatment_name = t_name, call = full_cl, ...)
 }

@@ -1,9 +1,6 @@
-# Environment to store compiled Stan models
-.bclogit_cache <- new.env(parent = emptyenv())
-
 .onLoad <- function(libname, pkgname) {
-    # Initialize cache if needed, though new.env above does it.
-    # We can pre-compile here if we wanted, but lazy is better.
+    # Initialize globals in the package namespace
+    assign("bclogit_globals", new.env(), envir = parent.env(environment()))
 }
 
 .onAttach <- function(libname, pkgname) {

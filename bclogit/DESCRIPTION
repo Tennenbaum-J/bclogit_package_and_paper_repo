@@ -2,8 +2,7 @@ Package: bclogit
 Title: Conditional Logistic Regression
 Version: 0.0.0.9000
 Authors@R: c(
-    person("Jacob", "Tennenbaum", email = "Jacob.Tennenbaum51@qmail.cuny.edu", role = c("aut", "cre")),
-    person("Bryan", "Nevarez", email = "Bryan.Nevarez@qc.cuny.edu", role = c("aut")),
+    person("Jacob", "Tennenbaum", email = "Jacob.Tennenbaum51@qmail.cuny.edu", role = c("aut", "cre"), comment = c(ORCID = "0009-0006-1408-5035")),
     person("Adam", "Kapelner", email = "kapelner@qc.cuny.edu", role = c("aut"), comment = c(ORCID = "0000-0001-5985-6792"))
     )
 Description: Conditional Logistic Regression with Informative Priors
@@ -21,7 +20,10 @@ Imports:
     geepack,
     glmmTMB,
     rstan,
-    rstanarm
+    rstanarm,
+    coda,
+    ggdist,
+    tibble
 LinkingTo:
     Rcpp,
     RcppEigen
@@ -31,5 +33,11 @@ Collate:
     'RcppExports.R'
     'bclogit.R'
     'bclogitFunctions.R'
-    'bclogitMethods.R'
+    'bclogit.formula.R'
+    'coef.bclogit.R'
+    'confint.bclogit.R'
+    'formula.bclogit.R'
+    'print.summary.bclogit.R'
+    'summary.bclogit.R'
+    'vcov.bclogit.R'
     'zzz.R'

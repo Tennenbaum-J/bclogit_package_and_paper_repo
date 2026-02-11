@@ -40,7 +40,8 @@ bclogit.default <- function(response = NULL,
                             strata = NULL,
                             concordant_method = "GLM",
                             prior_type = "Naive",
-                            treatment_name = NULL) {
+                            treatment_name = NULL,
+                            call = NULL) {
   # ------------------------------------------------------------------------
   # 1. Input Validation and Pre-processing
   # ------------------------------------------------------------------------
@@ -210,16 +211,7 @@ bclogit.default <- function(response = NULL,
     # Get compiled model (cached)
     stan_mod <- get_stan_model(stan_file)
 
-    if (prior_type == "Naive") {
-      data_list <- list(
-        N = nrow(wX_dis),
-        K = ncol(wX_dis),
-        X = wX_dis,
-        y = y_dis_0_1,
-        mu = b_con, # example prior mean
-        Sigma = Sigma_con # example covariance (wide prior)
-      )
-    } else if (prior_type == "G prior") {
+    if (prior_type %in% c("Naive", "G prior")) {
       data_list <- list(
         N = nrow(wX_dis),
         K = ncol(wX_dis),
@@ -228,7 +220,8 @@ bclogit.default <- function(response = NULL,
         mu = b_con,
         Sigma = Sigma_con
       )
-    } else if (prior_type %in% c("PMP", "Hybrid")) {
+    }
+    if (prior_type %in% c("PMP", "Hybrid")) {
       # PMP and Hybrid share this setup
       proj_matrix <- X_diffs_discordant %*% solve(t(X_diffs_discordant) %*% X_diffs_discordant) %*% t(X_diffs_discordant)
       w_dis_ortho <- treatment_diffs_discordant - proj_matrix %*% treatment_diffs_discordant
@@ -304,14 +297,14 @@ bclogit.default <- function(response = NULL,
     ),
 
     # Standard S3 components
-    call = match.call(),
+    call = if (!is.null(call)) call else match.call(),
     terms = model_terms,
     xlevels = NULL,
 
     # Metadata for summary
     n = n,
     num_discordant = length(y_diffs_discordant),
-    num_concordant = length(y_concordant),
+    num_concordant = length(y_concordant) / 2,
     X_model_matrix_col_names = X_model_matrix_col_names,
     treatment_name = treatment_name
   )
@@ -323,20 +316,18 @@ bclogit.default <- function(response = NULL,
 #' Helper to get compiled stan model from cache
 #' @keywords internal
 get_stan_model <- function(file_name) {
-  if (exists(file_name, envir = .bclogit_cache)) {
-    return(get(file_name, envir = .bclogit_cache))
-  } else {
+  # Check if model exists in globals
+  if (!exists(file_name, envir = bclogit_globals)) {
     message(paste("Compiling", file_name, "..."))
     stan_file_path <- system.file(file.path("stan", file_name), package = "bclogit")
     if (stan_file_path == "") {
       stop(paste("Stan file not found:", file_name))
     }
 
-    # Compile
+    # Compile and assign to globals
     mod <- rstan::stan_model(file = stan_file_path)
-
-    # Cache
-    assign(file_name, mod, envir = .bclogit_cache)
-    return(mod)
+    assign(file_name, mod, envir = bclogit_globals)
   }
+
+  return(get(file_name, envir = bclogit_globals))
 }
