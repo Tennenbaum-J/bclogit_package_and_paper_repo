@@ -57,7 +57,7 @@ A list of class \code{bclogit} containing:
 \description{
 bclogit
 
-This function fits a conditional logistic regression model, potentially incorporating
+This function fits a conditional logistic regression model, incorporating
 information from concordant pairs to improve estimation.
 }
 \details{

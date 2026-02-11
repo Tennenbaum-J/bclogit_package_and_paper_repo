@@ -1,0 +1,20 @@
+Loading required package: usethis
+ℹ Loading bclogit
+Loading required package: Rcpp
+Loading required package: RcppEigen
+! Skipping missing files:
+  'C:/Users/Jacob/clogitR_package_and_paper_repo/bclogit/R/bclogitMethods.R'
+! Adding files missing in collate:
+  'C:/Users/Jacob/clogitR_package_and_paper_repo/bclogit/R/bclogit.formula.R',
+  'C:/Users/Jacob/clogitR_package_and_paper_repo/bclogit/R/coef.bclogit.R',
+  'C:/Users/Jacob/clogitR_package_and_paper_repo/bclogit/R/confint.bclogit.R',
+  'C:/Users/Jacob/clogitR_package_and_paper_repo/bclogit/R/formula.bclogit.R',
+  'C:/Users/Jacob/clogitR_package_and_paper_repo/bclogit/R/print.summary.bclogit.R',
+  'C:/Users/Jacob/clogitR_package_and_paper_repo/bclogit/R/summary.bclogit.R',
+  and
+  'C:/Users/Jacob/clogitR_package_and_paper_repo/bclogit/R/vcov.bclogit.R'
+Welcome to bclogit v0.0.0.9000
+[1] "Attempting bclogit without treatment..."
+[1] "SUCCESS: bclogit threw error: The 'treatment' argument is required."
+[1] "Attempting bclogit.default without treatment..."
+[1] "SUCCESS: bclogit.default threw error: The 'treatment' argument is required."

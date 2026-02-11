@@ -3,18 +3,14 @@ using namespace Rcpp;
 
 // [[Rcpp::depends(RcppEigen)]]
 // [[Rcpp::export(rng = false)]]
-List process_matched_pairs_cpp(
-    const Eigen::VectorXi &strata, const Eigen::VectorXd &y,
-    const Eigen::MatrixXd &X,
-    Nullable<Eigen::VectorXd> treatment = R_NilValue) {
+List process_matched_pairs_cpp(const Eigen::VectorXi &strata,
+                               const Eigen::VectorXd &y,
+                               const Eigen::MatrixXd &X,
+                               const Eigen::VectorXd &treatment) {
   const int n = strata.size();
   const int p = X.cols();
-  const bool has_treatment = treatment.isNotNull();
 
-  Eigen::VectorXd treat_vec;
-  if (has_treatment) {
-    treat_vec = as<Eigen::VectorXd>(treatment);
-  }
+  Eigen::VectorXd treat_vec = treatment;
 
   // Pre-count to pre-allocate (single pass through strata)
   int n_reservoir = 0;
@@ -34,13 +30,12 @@ List process_matched_pairs_cpp(
 
   Eigen::MatrixXd reservoir_X(n_reservoir + 2 * max_strata, p);
   Eigen::VectorXd reservoir_y(n_reservoir + 2 * max_strata);
-  Eigen::VectorXd reservoir_treat(has_treatment ? n_reservoir + 2 * max_strata
-                                                : 0);
+  Eigen::VectorXd reservoir_treat(n_reservoir + 2 * max_strata);
   Eigen::VectorXi reservoir_strata(n_reservoir + 2 * max_strata);
 
   Eigen::MatrixXd diffs_X(max_strata, p); // at most max_strata discordant pairs
   Eigen::VectorXd diffs_y(max_strata);
-  Eigen::VectorXd diffs_treat(has_treatment ? max_strata : 0);
+  Eigen::VectorXd diffs_treat(max_strata);
   std::vector<int> discordant_idx;
 
   int res_idx = 0;
@@ -51,9 +46,7 @@ List process_matched_pairs_cpp(
     if (strata[i] == 0) {
       reservoir_X.row(res_idx) = X.row(i);
       reservoir_y[res_idx] = y[i];
-      if (has_treatment) {
-        reservoir_treat[res_idx] = treat_vec[i];
-      }
+      reservoir_treat[res_idx] = treat_vec[i];
       reservoir_strata[res_idx] = strata[i];
       res_idx++;
     }
@@ -88,23 +81,19 @@ List process_matched_pairs_cpp(
       // Concordant pair → add to reservoir
       reservoir_X.row(res_idx) = X.row(i);
       reservoir_y[res_idx] = yi;
-      if (has_treatment) {
-        reservoir_treat[res_idx] = treat_vec[i];
-      }
+      reservoir_treat[res_idx] = treat_vec[i];
       reservoir_strata[res_idx] = current_stratum;
       res_idx++;
 
       reservoir_X.row(res_idx) = X.row(j);
       reservoir_y[res_idx] = yj;
-      if (has_treatment) {
-        reservoir_treat[res_idx] = treat_vec[j];
-      }
+      reservoir_treat[res_idx] = treat_vec[j];
       reservoir_strata[res_idx] = current_stratum;
       current_stratum++;
       res_idx++;
     } else {
       // Discordant → compute diff (case - control)
-      if (has_treatment && treat_vec[i] == 0) {
+      if (treat_vec[i] == 0) {
         discordant_idx.push_back(j);
         discordant_idx.push_back(i);
         diffs_X.row(diff_idx) = X.row(j) - X.row(i);
@@ -115,9 +104,7 @@ List process_matched_pairs_cpp(
         discordant_idx.push_back(j);
         diffs_X.row(diff_idx) = X.row(i) - X.row(j);
         diffs_y[diff_idx] = yi - yj;
-        if (has_treatment) {
-          diffs_treat[diff_idx] = treat_vec[i] - treat_vec[j];
-        }
+        diffs_treat[diff_idx] = treat_vec[i] - treat_vec[j];
       }
       diff_idx++;
     }
@@ -127,30 +114,26 @@ List process_matched_pairs_cpp(
   if (res_idx > 0) {
     reservoir_X.conservativeResize(res_idx, p);
     reservoir_y.conservativeResize(res_idx);
-    if (has_treatment) {
-      reservoir_treat.conservativeResize(res_idx);
-    }
+    reservoir_treat.conservativeResize(res_idx);
     reservoir_strata.conservativeResize(res_idx);
   }
 
   if (diff_idx > 0) {
     diffs_X.conservativeResize(diff_idx, p);
     diffs_y.conservativeResize(diff_idx);
-    if (has_treatment) {
-      diffs_treat.conservativeResize(diff_idx);
-    }
+    diffs_treat.conservativeResize(diff_idx);
   }
 
   return List::create(
       _["X_concordant"] = res_idx > 0 ? wrap(reservoir_X) : R_NilValue,
       _["y_concordant"] = res_idx > 0 ? wrap(reservoir_y) : R_NilValue,
       _["treatment_concordant"] =
-          (has_treatment && res_idx > 0) ? wrap(reservoir_treat) : R_NilValue,
+          (res_idx > 0) ? wrap(reservoir_treat) : R_NilValue,
       _["strata_concordant"] =
           res_idx > 0 ? wrap(reservoir_strata) : R_NilValue,
       _["X_diffs_discordant"] = diff_idx > 0 ? wrap(diffs_X) : R_NilValue,
       _["y_diffs_discordant"] = diff_idx > 0 ? wrap(diffs_y) : R_NilValue,
       _["treatment_diffs_discordant"] =
-          (has_treatment && diff_idx > 0) ? wrap(diffs_treat) : R_NilValue,
+          (diff_idx > 0) ? wrap(diffs_treat) : R_NilValue,
       _["discordant_idx"] = discordant_idx);
 }

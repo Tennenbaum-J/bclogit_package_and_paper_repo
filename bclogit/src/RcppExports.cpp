@@ -12,14 +12,14 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // process_matched_pairs_cpp
-List process_matched_pairs_cpp(const Eigen::VectorXi& strata, const Eigen::VectorXd& y, const Eigen::MatrixXd& X, Nullable<Eigen::VectorXd> treatment);
+List process_matched_pairs_cpp(const Eigen::VectorXi& strata, const Eigen::VectorXd& y, const Eigen::MatrixXd& X, const Eigen::VectorXd& treatment);
 RcppExport SEXP _bclogit_process_matched_pairs_cpp(SEXP strataSEXP, SEXP ySEXP, SEXP XSEXP, SEXP treatmentSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::traits::input_parameter< const Eigen::VectorXi& >::type strata(strataSEXP);
     Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type y(ySEXP);
     Rcpp::traits::input_parameter< const Eigen::MatrixXd& >::type X(XSEXP);
-    Rcpp::traits::input_parameter< Nullable<Eigen::VectorXd> >::type treatment(treatmentSEXP);
+    Rcpp::traits::input_parameter< const Eigen::VectorXd& >::type treatment(treatmentSEXP);
     rcpp_result_gen = Rcpp::wrap(process_matched_pairs_cpp(strata, y, X, treatment));
     return rcpp_result_gen;
 END_RCPP

@@ -1,11 +1,11 @@
-pacman::p_load(dplyr, tidyr, data.table, doFuture, future, doRNG, foreach, progressr, doParallel, nbpMatching, doParallel, ggplot2, geepack, glmmTMB, rstan) # doParallel
+pacman::p_load(dplyr, tidyr, data.table, doFuture, future, doRNG, foreach, progressr, doParallel, nbpMatching, doParallel, ggplot2, geepack, glmmTMB, rstan, riskCommunicator) # doParallel
 
 if (!require("bclogit", character.only = TRUE)) {
   remotes::install_local("bclogit", dependencies = FALSE, force = TRUE, upgrade = "never")
   library(bclogit)
 }
 
-install.packages("riskCommunicator")
+#install.packages("riskCommunicator")
 library(riskCommunicator)
 data("framingham")
 D=data.table(framingham)
@@ -23,7 +23,7 @@ Dba = D[PERIOD %in% c(1,3)]
 Dba[, num_periods_per_id := .N, by = RANDID]
 Dba = Dba[num_periods_per_id == 2]
 Dba[, num_periods_per_id := NULL]
-
+rm(framingham, D)
 
 
 

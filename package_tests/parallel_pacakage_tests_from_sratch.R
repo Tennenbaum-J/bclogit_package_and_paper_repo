@@ -1,12 +1,14 @@
 pacman::p_load(dplyr, tidyr, data.table, doFuture, future, doRNG, foreach, progressr, doParallel, nbpMatching, doParallel, ggplot2, geepack, glmmTMB, rstan, binaryMM, rstanarm) # doParallel
 
+rm(list = setdiff(ls(), c("sm", "sm_g", "sm_PMP", "sm_hybrid")))
+
 if (!require("bclogit", character.only = TRUE)) {
   remotes::install_local("bclogit", dependencies = FALSE, force = TRUE, upgrade = "never")
   library(bclogit)
 }
 
-num_cores <- availableCores() - 6
-ps <- c(6, 20)
+num_cores <- availableCores() - 4
+ps <- c(6)
 Nsim <- 100
 external_nsim <- 100000
 ns <- c(100, 250, 500)
@@ -36,21 +38,22 @@ params <- params %>%
 
 Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type, concordant_fit) {
   if (concordant_fit == "GLM") {
-    fit_con <- glm(y_con ~ X_con, family = "binomial")
+    fit_con <- glm(y_con ~ w_con + X_con, family = "binomial")
     b_con <- summary(fit_con)$coefficients[, 1]
     Sigma_con <- pmin(vcov(fit_con), 1e3)
     eps <- 1e-6 # added for stabilibty
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
-    b_con <- c(0, b_con[-c(1)])
-    #Sigma_con <- Sigma_con[-1, -1]
+    b_con <- c(0, b_con[-c(1,2)])
+    Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
     Sigma_con[1, 1] <- 1e3
-  } else if (concordant_fit == "GEE") {
+  }
+  if (concordant_fit == "GEE") {
     strat_con <- rep(1:(nrow(X_con) / 2), each = 2)
     fit_con <- geeglm(
-      y_con ~  X_con,
+      y_con ~ w_con + X_con,
       id = strat_con,
       family = binomial(link = "logit"),
       corstr = "exchangeable",
@@ -62,16 +65,17 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     eps <- 1e-6 # added for stabilibty
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
-    b_con <- c(0, b_con[-c(1)])
-    #Sigma_con <- Sigma_con[-1, -1]
+    b_con <- c(0, b_con[-c(1,2)])
+    Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
     Sigma_con[1, 1] <- 1e3
-  } else if (concordant_fit == "GLMM") {
+  }
+  if (concordant_fit == "GLMM") {
     strat_con <- rep(1:(nrow(X_con) / 2), each = 2)
 
     fit_con <- glmmTMB(
-      y_con ~  X_con + (1 | strat_con),
+      y_con ~  w_con + X_con + (1 | strat_con),
       family = binomial(),
       data   = data.frame(y_con, w_con, X_con, strat_con)
     )
@@ -81,8 +85,8 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     eps <- 1e-6 # added for stabilibty
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
-    b_con <- c(0, b_con[-c(1)])
-    #Sigma_con <- Sigma_con[-1, -1]
+    b_con <- c(0, b_con[-c(1,2)])
+    Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
     Sigma_con[1, 1] <- 1e3
@@ -121,7 +125,8 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
         NULL
       }
     )
-  } else if (prior_type == "G prior") {
+  }
+  if (prior_type == "G prior") {
     if (all(diag(Sigma_con) == 1e3)) {
       ret <- list()
       ret$betaT <- NA
@@ -152,7 +157,8 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
         NULL
       }
     )
-  } else if (prior_type == "PMP") {
+  }
+  if (prior_type == "PMP") {
     proj_matrix <- X_dis %*% solve(t(X_dis) %*% X_dis) %*% t(X_dis)
     w_dis_ortho <- w_dis - proj_matrix %*% w_dis
 
@@ -177,7 +183,8 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
         NULL
       }
     )
-  } else if (prior_type == "Hybrid") {
+  }
+  if (prior_type == "Hybrid") {
     proj_matrix <- X_dis %*% solve(t(X_dis) %*% X_dis) %*% t(X_dis)
     w_dis_ortho <- w_dis - proj_matrix %*% w_dis
 
@@ -252,6 +259,8 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     inference = character(),
     beta_hat_T = numeric(),
     pval = numeric(),
+    #estimate = numeric(),
+    #pval_e = numeric(),
     g = numeric()
   )
   matched_data <-
@@ -286,6 +295,8 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     # beta_hat_T <- NA
     # ssq_beta_hat_T <- NA
     # pval <- NA
+    # modle_tracking_value <- NA
+    # pval_modle_tracking_value <- NA
     # if (discordant_viabele) {
     #   y_dis_0_1 <- ifelse(y_dis == -1, 0, 1)
     #   model <- summary(glm(y_dis_0_1 ~ 0 + w_dis + X_dis, family = "binomial"))$coefficients[1, c(1, 2)]
@@ -303,13 +314,18 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     #   inference = "clogit",
     #   beta_hat_T = beta_hat_T,
     #   ssq_beta_hat_T = ssq_beta_hat_T,
-    #   pval = pval
+    #   pval = pval#,
+    #   #modle_tracking_value = modle_tracking_value,
+    #   #pval_modle_tracking_value = pval_modle_tracking_value,
+    #   #g = NA
     # ))
 
     ########################### LOGIT  ###########################
     # beta_hat_T <- NA
     # ssq_beta_hat_T <- NA
     # pval <- NA
+    # modle_tracking_value <- NA
+    # pval_modle_tracking_value <- NA
     # if (TRUE) {
     #   model <- summary(glm(y ~ w + X, family = "binomial"))$coefficients[2, c(1, 2)]
     #   beta_hat_T <- model[1]
@@ -323,26 +339,33 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     #   X_style = X_style,
     #   true_funtion = true_funtion,
     #   regress_on_X = regress_on_X,
-    #   inference = "logit",
+    #   inference = "GLM",
     #   beta_hat_T = beta_hat_T,
     #   ssq_beta_hat_T = ssq_beta_hat_T,
-    #   pval = pval
+    #   pval = pval#,
+    #   #modle_tracking_value = modle_tracking_value,
+    #   #pval_modle_tracking_value = pval_modle_tracking_value,
+    #   #g = NA
     # ))
-
+    
     ########################### BAYESIAN ###########################
-    for (prior_type in c("normal", "G prior", "PMP", "Hybrid")) {
+    for (prior_type in c("G prior", "Hybrid")) { #"normal", "G prior", "PMP", "Hybrid"
       for (concordant_fit in c("GLM", "GEE", "GLMM")) {
         beta_hat_T <- NA
         ssq_beta_hat_T <- NA
         pval <- NA
-        pval_freq <- NA
+        beta_hat_T <- NA
+        ssq_beta_hat_T <- NA
+        pval <- NA
+        modle_tracking_value <- NA
+        pval_modle_tracking_value <- NA
+        g <- NA
         if (discordant_viabele & concordant_viabele) {
           model <- Bayesian_Clogit(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type, concordant_fit)
           beta_hat_T <- model$betaT
           ssq_beta_hat_T <- model$ssq_beta_T
           pval <- model$pval
           g = model$g
-          # pval_freq = 2 * pnorm(min(c(-1,1) * (beta_hat_T / ssq_beta_hat_T)))
         }
         res <- rbind(res, data.frame(
           n = n,
@@ -355,6 +378,8 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
           beta_hat_T = beta_hat_T,
           ssq_beta_hat_T = ssq_beta_hat_T,
           pval = pval,
+          #modle_tracking_value = modle_tracking_value,
+          #pval_modle_tracking_value = pval_modle_tracking_value,
           g = g
         ))
       }
@@ -364,6 +389,8 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     # beta_hat_T <- NA
     # ssq_beta_hat_T <- NA
     # pval <- NA
+    # modle_tracking_value <- NA
+    # pval_modle_tracking_value <- NA
     # tryCatch(
     #   {
     #     fit_tmb <- glmmTMB(
@@ -375,6 +402,15 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     #     beta_hat_T <- model[1]
     #     ssq_beta_hat_T <- model[2]
     #     pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
+    #     modle_tracking_value = VarCorr(fit_tmb)$cond$strat[1,1]
+    #     
+    #     m_null <- glmmTMB(
+    #       y ~ X + w,
+    #       family = binomial(),
+    #       data   = data.frame(y, X, w, strat)
+    #     )
+    #     pval_modle_tracking_value <- anova(m_null, fit_tmb)[2, "Pr(>Chisq)"]
+    #     
     #   },
     #   error = function(e) {
     #     beta_hat_T <<- NA
@@ -392,13 +428,18 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     #   inference = "GLMM",
     #   beta_hat_T = beta_hat_T,
     #   ssq_beta_hat_T = ssq_beta_hat_T,
-    #   pval = pval
+    #   pval = pval#,
+    #   #modle_tracking_value = modle_tracking_value,
+    #   #pval_modle_tracking_value = pval_modle_tracking_value,
+    #   #g = NA
     # ))
 
     ########################### GEE  ###########################
     # beta_hat_T <- NA
     # ssq_beta_hat_T <- NA
     # pval <- NA
+    # modle_tracking_value <- NA
+    # pval_modle_tracking_value <- NA
     # tryCatch(
     #   {
     #     fit_gee <- geeglm(
@@ -412,6 +453,9 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     #     beta_hat_T <- as.numeric(model[1])
     #     ssq_beta_hat_T <- as.numeric(model[2])
     #     pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
+    #     modle_tracking_value <- as.numeric(summary(fit_gee)$corr["Estimate"])
+    #     pval_modle_tracking_value <- 2 * pnorm(as.numeric(abs(modle_tracking_value / summary(fit_gee)$corr["Std.err"])), lower.tail = FALSE)
+    #     
     #   },
     #   error = function(e) {
     #     beta_hat_T <<- NA
@@ -429,7 +473,10 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, X_style, true_funtion, re
     #   inference = "GEE",
     #   beta_hat_T = beta_hat_T,
     #   ssq_beta_hat_T = ssq_beta_hat_T,
-    #   pval = pval
+    #   pval = pval#,
+    #   #modle_tracking_value = modle_tracking_value,
+    #   #pval_modle_tracking_value = pval_modle_tracking_value,
+    #   #g = NA
     # ))
 
     ########################### STAN_GLMER ###########################
@@ -671,14 +718,6 @@ Run_sim <- function(p, beta_T, n, X_style) {
     X[, 1] <- runif(n, min = -1, max = 1)
     rm(X_plus_eps, combined, ids)
   }
-  # df = data.frame(cbind(id = 1:n, X))
-  # df.dist = gendistance(data.frame(df[, -1]), idcol = 1)
-  # df.mdm = distancematrix(df.dist)
-  # df.match = nonbimatch(df.mdm)
-  #
-  # T_inx = df.match$halves[,2]
-  # C_ind = df.match$halves[,4]
-  # X = X[c(rbind(T_inx, C_ind)), ] #zip them together, so the mathces should be 1,1,2,2,3,3...
   w <- c(rbind(replicate(n / 2, sample(c(0, 1)), simplify = TRUE)))
   strat <- rep(1:(n / 2), each = 2)
 
@@ -778,7 +817,7 @@ for (e_nsim in 1:external_nsim) {
       )
     }
   })
-  write.csv(results, file = paste0("C:/temp/clogitR_kap_test_from_scratch/", Nsim, "_", e_nsim, ".csv"), row.names = FALSE)
+  write.csv(results, file = paste0("C:/temp/clogitR_kap_test_from_scratch/", Nsim, "_", e_nsim, "_g_prior.csv"), row.names = FALSE)
   rm(results)
   gc()
 }
@@ -788,11 +827,11 @@ plan(sequential)
 
 ############### COMPILE RESULTS ###############
 
-results <- read.csv("C:/temp/clogitR_kap_test_from_scratch/100_1no_intercept.csv")
+results <- read.csv("C:/temp/clogitR_kap_test_from_scratch/100_1_g_prior.csv")
 
 sum <- 1
-for (i in 2:27) {
-  file_path <- paste0("C:/temp/clogitR_kap_test_from_scratch/100_", i, "no_intercept.csv")
+for (i in 2:100) {
+  file_path <- paste0("C:/temp/clogitR_kap_test_from_scratch/100_", i, "_g_prior.csv")
   if (file.exists(file_path)) {
     sum <- sum + 1
     message("Reading file ", i)
@@ -816,23 +855,31 @@ res_mod <- results %>%
     upper_ci = beta_hat_T + (1.96 * ssq_beta_hat_T),
     covered = (lower_ci <= beta_T) & (upper_ci >= beta_T),
     sq_err = (beta_hat_T - beta_T)^2,
-    rej = pval < 0.05
+    rej = pval < 0.05,
+    #rej_mtv = pval_modle_tracking_value < 0.05
   ) %>%
   group_by(p, beta_T, true_funtion, regress_on_X, n, inference, X_style) %>%
   summarize(
     num_na = sum(is.na(pval)),
     num_real = sum(!is.na(pval)),
-    mse = mean(sq_err, na.rm = TRUE, trim = 0.1),
+    mse = mean(sq_err, na.rm = TRUE, trim = 0.001),
+    med_mse = median(sq_err, na.rm = TRUE),
     percent_reject = sum(rej, na.rm = TRUE) / (n() - num_na),
     coverage = mean(covered, na.rm = TRUE),
     mean_beta_hat_T = mean(beta_hat_T, na.rm = TRUE),
     mean_sq_beta_hat_T = mean(ssq_beta_hat_T, trim = 0.001, na.rm = TRUE),
     significant = binom.test(sum(rej, na.rm = TRUE), n = (n() - num_na),  p = 0.05)$p.value,
+    coverage_sig = binom.test(x = sum(covered, na.rm = TRUE), n = sum(!is.na(covered)), p = 0.95)$p.value,
+    #mean_mtv = mean(modle_tracking_value, trim = 0.001, na.rm = TRUE),
+    #num_na_mtv = sum(is.na(pval_modle_tracking_value)),
+    #percent_reject_mtv = sum(rej_mtv, na.rm = TRUE) / (n() - num_na_mtv),
+    #significant_mtv = ifelse(num_na_mtv < 0.9 * n(), binom.test(sum(rej_mtv, na.rm = TRUE), n = (n() - num_na_mtv),  p = 0.05)$p.value, NaN),
+    mean_g = mean(g, na.rm = TRUE),
     .groups = "drop"
   )
 
 
-write.csv(res_mod, file = "C:/temp/clogitR_kap_test_from_scratch/combined_2700_2.csv", row.names = FALSE)
+write.csv(res_mod, file = "C:/temp/clogitR_kap_test_from_scratch/combined_10000_3_g_prior.csv", row.names = FALSE)
 
 
 

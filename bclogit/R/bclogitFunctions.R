@@ -8,11 +8,12 @@
 #' @param treatment A binary (0,1) vector containing whether each subject is treatment or control.
 #' @param strata Numeric vector indexing the matched pairs and the reservoir. Entries indexed with zero, are added to the reservoir. Entries indexed with the same number are part of the same strata.
 #' @param concordant_method The method to use for fitting the concordant pairs and reservoir. Options are "GLM", "GEE", and "GLMM".
-#' @param prior_type The type of prior to use for the discordant pairs. Options are "naive", "G prior", "PMP", and "hybrid".
+#' @param prior_type The type of prior to use for the discordant pairs. Options are "Naive", "G prior", "PMP", and "hybrid".
 #' @return A list of class `bclogit` containing:
 #'   \item{coefficients}{Estimated coefficients (posterior means).}
 #'   \item{var}{Variance-covariance matrix of coefficients.}
 #'   \item{model}{The fitted Stan model object.}
+#'   \item{concordant_model}{The fitted model object for the concordant pairs/reservoir (GLM/GEE/GLMM).}
 #'   \item{prior_info}{Information about the prior derived from concordant pairs.}
 #'   \item{call}{The function call.}
 #'   \item{terms}{The model terms.}
@@ -37,12 +38,14 @@ bclogit.default <- function(response = NULL,
                             data = NULL,
                             treatment = NULL,
                             strata = NULL,
-                            concordant_method = "GEE",
-                            prior_type = "hybrid",
+                            concordant_method = "GLM",
+                            prior_type = "Naive",
                             treatment_name = NULL) {
   # ------------------------------------------------------------------------
   # 1. Input Validation and Pre-processing
   # ------------------------------------------------------------------------
+  if (missing(treatment)) stop("The 'treatment' argument is required.")
+
   if (test_data_frame(data, types = c("numeric", "integer", "factor", "logical"))) {
     data_mat <- model.matrix(~ 0 + ., data = data)
   } else if (test_matrix(data, mode = "numeric")) {
@@ -61,17 +64,15 @@ bclogit.default <- function(response = NULL,
 
   assertString(concordant_method, c("GLM", "GEE", "GLMM"))
   assertNumeric(response, lower = 0, upper = 1, any.missing = FALSE, len = n)
-
-  if (!is.null(treatment)) {
-    assertNumeric(treatment, lower = 0, upper = 1, any.missing = FALSE, len = n)
-    if (!all(treatment %in% c(0, 1))) {
-      stop("Treatment must be binary 0 or 1.")
-    }
-    if (is.null(treatment_name)) {
-      treatment_name <- deparse(substitute(treatment))
-    }
-  }
+  assertNumeric(treatment, lower = 0, upper = 1, any.missing = FALSE, len = n)
   assertNumeric(strata, any.missing = FALSE, len = n)
+
+  if (!all(treatment %in% c(0, 1))) {
+    stop("Treatment must be binary 0 or 1.")
+  }
+  if (is.null(treatment_name)) {
+    treatment_name <- deparse(substitute(treatment))
+  }
 
   # Capture terms for summary/printing usage if possible (though we used matrix for fitting)
   model_terms <- tryCatch(terms(response ~ ., data = as.data.frame(data_mat)), error = function(e) NULL)
@@ -100,9 +101,6 @@ bclogit.default <- function(response = NULL,
     stop("Not enough rows. Must be at least the number of covariates plus 5")
   }
 
-  if (is.null(treatment)) {
-    warning("Function did not include a treatment parameter. The order of the differences in the matched pairs will be arbitrary.")
-  }
 
   matched_data <- process_matched_pairs_cpp(
     strata = strata,
@@ -127,7 +125,6 @@ bclogit.default <- function(response = NULL,
   # --- Concordant Pairs / Reservoir Model ---
 
   concordant_model <- NULL
-  concordant_converged <- NULL
 
   # Check for concordant pairs
   if (length(y_concordant) < ncol(X_concordant) + 5) {
@@ -140,15 +137,14 @@ bclogit.default <- function(response = NULL,
       concordant_model <- glm(y_concordant ~ treatment_concordant + X_concordant, family = "binomial")
       b_con <- summary(concordant_model)$coefficients[, 1]
       Sigma_con <- pmin(vcov(concordant_model), 100)
-      eps <- 1e-6 # Stability
-      Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
       b_con <- c(0, b_con[-c(1, 2)])
       Sigma_con <- Sigma_con[-1, -1]
       Sigma_con[1, ] <- 0
       Sigma_con[, 1] <- 0
       Sigma_con[1, 1] <- 100
-    } else if (concordant_method == "GEE") {
+    }
+    if (concordant_method == "GEE") {
       concordant_model <- geepack::geeglm(
         y_concordant ~ treatment_concordant + X_concordant,
         id = strata_concordant,
@@ -159,16 +155,14 @@ bclogit.default <- function(response = NULL,
 
       b_con <- summary(concordant_model)$coefficients[, 1]
       Sigma_con <- pmin(vcov(concordant_model), 100)
-      Sigma_con <- (Sigma_con + t(Sigma_con)) / 2 # Force symmetry
-      eps <- 1e-6 # Stability
-      Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
       b_con <- c(0, b_con[-c(1, 2)])
       Sigma_con <- Sigma_con[-1, -1]
       Sigma_con[1, ] <- 0
       Sigma_con[, 1] <- 0
       Sigma_con[1, 1] <- 100
-    } else if (concordant_method == "GLMM") {
+    }
+    if (concordant_method == "GLMM") {
       concordant_model <- glmmTMB::glmmTMB(
         y_concordant ~ treatment_concordant + X_concordant + (1 | strata_concordant),
         family = binomial(),
@@ -177,8 +171,6 @@ bclogit.default <- function(response = NULL,
 
       b_con <- summary(concordant_model)$coefficients$cond[, 1]
       Sigma_con <- pmin(vcov(concordant_model)$cond, 100)
-      eps <- 1e-6 # Stability
-      Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
       b_con <- c(0, b_con[-c(1, 2)])
       Sigma_con <- Sigma_con[-1, -1]
@@ -188,7 +180,6 @@ bclogit.default <- function(response = NULL,
     }
   }
 
-  print("changes loaded")
   # Sanitize priors to ensure no NA values are passed
   if (exists("b_con") && any(is.na(b_con))) {
     b_con[is.na(b_con)] <- 0
@@ -204,10 +195,22 @@ bclogit.default <- function(response = NULL,
   if (length(y_diffs_discordant) < ncol(X_diffs_discordant) + 5) {
     stop("There are not enough discordant pairs. The model will not be fit .")
   } else {
+    Sigma_con <- (Sigma_con + t(Sigma_con)) / 2
     y_dis_0_1 <- ifelse(y_diffs_discordant == -1, 0, 1)
     wX_dis <- cbind(treatment_diffs_discordant, X_diffs_discordant)
 
-    if (prior_type == "naive") {
+    stan_file <- switch(prior_type,
+      "Naive" = "mvn_logistic.stan",
+      "G prior" = "mvn_logistic_gprior.stan",
+      "PMP" = "mvn_logistic_PMP.stan",
+      "Hybrid" = "mvn_logistic_Hybrid.stan",
+      stop("Unknown prior type")
+    )
+
+    # Get compiled model (cached)
+    stan_mod <- get_stan_model(stan_file)
+
+    if (prior_type == "Naive") {
       data_list <- list(
         N = nrow(wX_dis),
         K = ncol(wX_dis),
@@ -215,15 +218,6 @@ bclogit.default <- function(response = NULL,
         y = y_dis_0_1,
         mu = b_con, # example prior mean
         Sigma = Sigma_con # example covariance (wide prior)
-      )
-      discordant_model <- tryCatch(
-        {
-          rstan::stan(file = system.file("stan/mvn_logistic.stan", package = "bclogit"), data = data_list, refresh = 0, chains = 1)
-        },
-        error = function(e) {
-          warning(sprintf("stan_glm failed: %s", e$message))
-          NULL
-        }
       )
     } else if (prior_type == "G prior") {
       data_list <- list(
@@ -234,17 +228,8 @@ bclogit.default <- function(response = NULL,
         mu = b_con,
         Sigma = Sigma_con
       )
-      discordant_model <- tryCatch(
-        {
-          rstan::stan(file = system.file("stan/mvn_logistic_gprior.stan", package = "bclogit"), data = data_list, refresh = 0, chains = 1)
-        },
-        error = function(e) {
-          warning(sprintf("stan_glm failed: %s", e$message))
-          NULL
-        }
-      )
-    } else if (prior_type == "PMP") {
-      # Orthogonalize inputs
+    } else if (prior_type %in% c("PMP", "Hybrid")) {
+      # PMP and Hybrid share this setup
       proj_matrix <- X_diffs_discordant %*% solve(t(X_diffs_discordant) %*% X_diffs_discordant) %*% t(X_diffs_discordant)
       w_dis_ortho <- treatment_diffs_discordant - proj_matrix %*% treatment_diffs_discordant
 
@@ -256,43 +241,19 @@ bclogit.default <- function(response = NULL,
         X = X_diffs_discordant,
         mu_A = as.array(b_con[-1]),
         Sigma_A = as.matrix(Sigma_con[-1, -1, drop = FALSE])
-      )
-
-      discordant_model <- tryCatch(
-        {
-          rstan::stan(file = system.file("stan/mvn_logistic_PMP.stan", package = "bclogit"), data = data_list, refresh = 0, chains = 1)
-        },
-        error = function(e) {
-          warning(sprintf("stan_glm failed: %s", e$message))
-          NULL
-        }
-      )
-    } else if (prior_type == "Hybrid") {
-      proj_matrix <- X_diffs_discordant %*% solve(t(X_diffs_discordant) %*% X_diffs_discordant) %*% t(X_diffs_discordant)
-      w_dis_ortho <- treatment_diffs_discordant - proj_matrix %*% treatment_diffs_discordant
-
-
-      # Prepare the data list for Stan
-      data_list <- list(
-        N = nrow(X_diffs_discordant),
-        P = ncol(X_diffs_discordant),
-        y = y_dis_0_1,
-        xw = as.vector(w_dis_ortho),
-        X = X_diffs_discordant,
-        mu_A = as.array(b_con[-1]),
-        Sigma_A = as.matrix(Sigma_con[-1, -1, drop = FALSE])
-      )
-
-      discordant_model <- tryCatch(
-        {
-          rstan::stan(file = system.file("stan/mvn_logistic_Hybrid.stan", package = "bclogit"), data = data_list, refresh = 0, chains = 1)
-        },
-        error = function(e) {
-          warning(sprintf("Hybrid PMP failed: %s", e$message))
-          NULL
-        }
       )
     }
+
+    # Sample from the model
+    discordant_model <- tryCatch(
+      {
+        rstan::sampling(stan_mod, data = data_list, refresh = 0, chains = 1)
+      },
+      error = function(e) {
+        warning(sprintf("Sampling failed: %s", e$message))
+        NULL
+      }
+    )
   }
 
   # ------------------------------------------------------------------------
@@ -308,7 +269,7 @@ bclogit.default <- function(response = NULL,
 
     sims <- rstan::extract(discordant_model)
 
-    if (prior_type %in% c("naive", "G prior")) {
+    if (prior_type %in% c("Naive", "G prior")) {
       beta_post <- sims$beta
       col_names_final <- c(treatment_name, X_model_matrix_col_names)
     } else {
@@ -336,6 +297,7 @@ bclogit.default <- function(response = NULL,
     coefficients = coefficients,
     var = var_cov,
     model = discordant_model,
+    concordant_model = concordant_model,
     prior_info = list(
       mu = if (exists("b_con")) b_con else NULL,
       Sigma = if (exists("Sigma_con")) Sigma_con else NULL
@@ -356,4 +318,25 @@ bclogit.default <- function(response = NULL,
 
   class(res) <- c("bclogit", "list")
   return(res)
+}
+
+#' Helper to get compiled stan model from cache
+#' @keywords internal
+get_stan_model <- function(file_name) {
+  if (exists(file_name, envir = .bclogit_cache)) {
+    return(get(file_name, envir = .bclogit_cache))
+  } else {
+    message(paste("Compiling", file_name, "..."))
+    stan_file_path <- system.file(file.path("stan", file_name), package = "bclogit")
+    if (stan_file_path == "") {
+      stop(paste("Stan file not found:", file_name))
+    }
+
+    # Compile
+    mod <- rstan::stan_model(file = stan_file_path)
+
+    # Cache
+    assign(file_name, mod, envir = .bclogit_cache)
+    return(mod)
+  }
 }
