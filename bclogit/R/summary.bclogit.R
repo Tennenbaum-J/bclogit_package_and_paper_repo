@@ -36,6 +36,7 @@ summary.bclogit <- function(object, conf.level = 0.95, ...) {
 
     # Calculate summary stats
     est <- colMeans(beta_post)
+    median_val <- apply(beta_post, 2, median)
     se <- apply(beta_post, 2, sd)
 
     alpha <- (1 - conf.level) / 2
@@ -100,6 +101,7 @@ summary.bclogit <- function(object, conf.level = 0.95, ...) {
 
     coef_mat <- cbind(
         Estimate = est,
+        Median = median_val,
         `Est.Error` = se,
         `Q_low` = q_low,
         `Q_high` = q_high,
@@ -114,7 +116,8 @@ summary.bclogit <- function(object, conf.level = 0.95, ...) {
     rownames(coef_mat) <- names(object$coefficients)
 
     # Rename Quantile columns nicely
-    colnames(coef_mat)[3:4] <- paste0(c("L", "U"), format(conf.level * 100), "%")
+    # Note: Column indices shifted by 1 due to Median insertion
+    colnames(coef_mat)[4:5] <- paste0(c("L", "U"), format(conf.level * 100), "%")
 
     res <- list(
         call = object$call,

@@ -9,19 +9,19 @@ if (!require("bclogit", character.only = TRUE)) {
 ############### VARIABLES ###############
 
 num_cores <- availableCores() - 4
-ps <- c(6)                                                  #number of covareates
-Nsim <- 100                                                 #number of simulations per block of simulations
-external_nsim <- 100                                        #number of blocks of simulations
-ns <- c(100, 250, 500)                                      #n values
-beta_Ts <- c(0, 0.5)                                        #treatment effects
-true_funtions <- c("linear", "non-linear")                  #true underlying function either linear or nonlinear
-regress_on_Xs <- c("one", "two")                            #number of covareats the model gets to see
+ps <- c(6) # number of covariates
+Nsim <- 100 # number of simulations per block of simulations
+external_nsim <- 100 # number of blocks of simulations
+ns <- c(100, 250, 500) # n values
+beta_Ts <- c(0, 0.5) # treatment effects
+true_functions <- c("linear", "non-linear") # true underlying function either linear or nonlinear
+regress_on_Xs <- c("one", "two") # number of covariates the model gets to see
 
 # Priors  || Have to set proper directory
-sm <- rstan::stan_model("mvn_logistic.stan")                #naive
-sm_g <- rstan::stan_model("mvn_logistic_gprior.stan")       #g prior
-sm_PMP <- rstan::stan_model("mvn_logistic_PMP.stan")        #PMP
-sm_hybrid <- rstan::stan_model("mvn_logistic_Hybrid.stan")  #Hybrid
+sm <- rstan::stan_model("mvn_logistic.stan") # naive
+sm_g <- rstan::stan_model("mvn_logistic_gprior.stan") # g prior
+sm_PMP <- rstan::stan_model("mvn_logistic_PMP.stan") # PMP
+sm_hybrid <- rstan::stan_model("mvn_logistic_Hybrid.stan") # Hybrid
 
 
 params <- expand.grid(
@@ -38,19 +38,18 @@ params <- params %>%
 # Runs bclogit without the package. This is how it works at the time of simulation for the paper
 # called from `Do_Inference`
 Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type, concordant_fit) {
-  
-  # NOTE ON THE CONCORDANT MODLES:
+  # NOTE ON THE CONCORDANT MODELS:
   # Since we include `w` in the concordant regression we have to get rid of a column from the estimate to match the dimension of the discordant model.
-  # Additionaly we assume a flat prior for the treatment effect, hence setting it to mean 0 and high var.
-  
+  # Additionally we assume a flat prior for the treatment effect, hence setting it to mean 0 and high var.
+
   if (concordant_fit == "GLM") {
     fit_con <- glm(y_con ~ w_con + X_con, family = "binomial")
     b_con <- summary(fit_con)$coefficients[, 1]
     Sigma_con <- pmin(vcov(fit_con), 1e3)
-    eps <- 1e-6 # added for stabilibty
+    eps <- 1e-6 # added for stability
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
-    b_con <- c(0, b_con[-c(1,2)])
+    b_con <- c(0, b_con[-c(1, 2)])
     Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
@@ -68,10 +67,10 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
 
     b_con <- summary(fit_con)$coefficients[, 1]
     Sigma_con <- pmin(vcov(fit_con), 1e3)
-    eps <- 1e-6 # added for stabilibty
+    eps <- 1e-6 # added for stability
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
-    b_con <- c(0, b_con[-c(1,2)])
+    b_con <- c(0, b_con[-c(1, 2)])
     Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
@@ -81,17 +80,17 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     strat_con <- rep(1:(nrow(X_con) / 2), each = 2)
 
     fit_con <- glmmTMB(
-      y_con ~  w_con + X_con + (1 | strat_con),
+      y_con ~ w_con + X_con + (1 | strat_con),
       family = binomial(),
       data   = data.frame(y_con, w_con, X_con, strat_con)
     )
 
     b_con <- summary(fit_con)$coefficients$cond[, 1]
     Sigma_con <- pmin(vcov(fit_con)$cond, 1e3)
-    eps <- 1e-6 # added for stabilibty
+    eps <- 1e-6 # added for stability
     Sigma_con <- Sigma_con + diag(eps, nrow(Sigma_con))
 
-    b_con <- c(0, b_con[-c(1,2)])
+    b_con <- c(0, b_con[-c(1, 2)])
     Sigma_con <- Sigma_con[-1, -1]
     Sigma_con[1, ] <- 0
     Sigma_con[, 1] <- 0
@@ -101,8 +100,8 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
   # conditional logistic regression is the same as logistic regression as long as the response is set to be 0 or 1.
   y_dis_0_1 <- ifelse(y_dis == -1, 0, 1)
   wX_dis <- cbind(w_dis, X_dis)
-  g = NA
-  
+  g <- NA
+
   if (prior_type == "naive") {
     if (all(diag(Sigma_con) == 1e3 + eps)) {
       ret <- list()
@@ -153,8 +152,8 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
 
     discordant_model <- tryCatch(
       {
-        mod = summary(rstan::sampling(sm_g, data = data_list, refresh = 0, chains = 1))$summary
-        g = mod["g", "mean"]
+        mod <- summary(rstan::sampling(sm_g, data = data_list, refresh = 0, chains = 1))$summary
+        g <- mod["g", "mean"]
         mod["beta[1]", c("mean", "sd", "2.5%", "97.5%")]
       },
       error = function(e) {
@@ -203,8 +202,8 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
 
     discordant_model <- tryCatch(
       {
-        mod = summary(rstan::sampling(sm_hybrid, data = data_list, refresh = 0, chains = 1))$summary
-        g = mod["g", "mean"]
+        mod <- summary(rstan::sampling(sm_hybrid, data = data_list, refresh = 0, chains = 1))$summary
+        g <- mod["g", "mean"]
         mod["beta_w", c("mean", "sd", "2.5%", "97.5%")]
       },
       error = function(e) {
@@ -228,28 +227,30 @@ Bayesian_Clogit <- function(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type
     ret$reject <- !(discordant_model[3] < 0 & discordant_model[4] > 0)
     ret$pval <- if (ret$reject) 0 else 1
   }
-  
-  if (!is.null(g)) { ret$g = g }
+
+  if (!is.null(g)) {
+    ret$g <- g
+  }
 
   return(ret)
 }
 
 # Runs all considered types of inference on the simulated data
 # called from `Run_sim`
-Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_X) {
+Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_function, regress_on_X) {
   # result data.frame
   res <- data.frame(
     n = numeric(),
     p = numeric(),
     beta_T = numeric(),
-    true_funtion = character(),
+    true_function = character(),
     regress_on_X = character(),
     inference = character(),
     beta_hat_T = numeric(),
     pval = numeric(),
     g = numeric()
   )
-  
+
   # prepare the matched data
   matched_data <-
     bclogit:::process_matched_pairs_cpp(
@@ -266,13 +267,13 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
   w_dis <- matched_data$treatment_diffs_discordant
   dis_idx <- matched_data$discordant_idx + 1
 
-  
-  discordant_viabele <- if (length(y_dis) > ncol(X) + 7) {
+
+  discordant_viable <- if (length(y_dis) > ncol(X) + 7) {
     TRUE
   } else {
     FALSE
   }
-  concordant_viabele <- if (length(y_con) > ncol(X) + 7) {
+  concordant_viable <- if (length(y_con) > ncol(X) + 7) {
     TRUE
   } else {
     FALSE
@@ -283,7 +284,7 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
   beta_hat_T <- NA
   ssq_beta_hat_T <- NA
   pval <- NA
-  if (discordant_viabele) {
+  if (discordant_viable) {
     y_dis_0_1 <- ifelse(y_dis == -1, 0, 1)
     model <- summary(glm(y_dis_0_1 ~ 0 + w_dis + X_dis, family = "binomial"))$coefficients[1, c(1, 2)]
     beta_hat_T <- model[1]
@@ -294,7 +295,7 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
     n = n,
     p = p,
     beta_T = beta_T,
-    true_funtion = true_funtion,
+    true_function = true_function,
     regress_on_X = regress_on_X,
     inference = "clogit",
     beta_hat_T = beta_hat_T,
@@ -317,7 +318,7 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
     n = n,
     p = p,
     beta_T = beta_T,
-    true_funtion = true_funtion,
+    true_function = true_function,
     regress_on_X = regress_on_X,
     inference = "GLM",
     beta_hat_T = beta_hat_T,
@@ -325,7 +326,7 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
     pval = pval,
     g = NA
   ))
-  
+
   ########################### BAYESIAN ###########################
   for (prior_type in c("naive", "G prior", "PMP", "Hybrid")) {
     for (concordant_fit in c("GLM", "GEE", "GLMM")) {
@@ -336,18 +337,18 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
       ssq_beta_hat_T <- NA
       pval <- NA
       g <- NA
-      if (discordant_viabele & concordant_viabele) {
+      if (discordant_viable & concordant_viable) {
         model <- Bayesian_Clogit(y_dis, X_dis, w_dis, y_con, X_con, w_con, prior_type, concordant_fit)
         beta_hat_T <- model$betaT
         ssq_beta_hat_T <- model$ssq_beta_T
         pval <- model$pval
-        g = model$g
+        g <- model$g
       }
       res <- rbind(res, data.frame(
         n = n,
         p = p,
         beta_T = beta_T,
-        true_funtion = true_funtion,
+        true_function = true_function,
         regress_on_X = regress_on_X,
         inference = paste0("bayesian_", prior_type, "_", concordant_fit),
         beta_hat_T = beta_hat_T,
@@ -373,7 +374,6 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
       beta_hat_T <- model[1]
       ssq_beta_hat_T <- model[2]
       pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
-
     },
     error = function(e) {
       beta_hat_T <<- NA
@@ -385,7 +385,7 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
     n = n,
     p = p,
     beta_T = beta_T,
-    true_funtion = true_funtion,
+    true_function = true_function,
     regress_on_X = regress_on_X,
     inference = "GLMM",
     beta_hat_T = beta_hat_T,
@@ -422,7 +422,7 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
     n = n,
     p = p,
     beta_T = beta_T,
-    true_funtion = true_funtion,
+    true_function = true_function,
     regress_on_X = regress_on_X,
     inference = "GEE",
     beta_hat_T = beta_hat_T,
@@ -440,7 +440,7 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_funtion, regress_on_
 Run_sim <- function(p, beta_T, n) {
   # holds the results of all sub simulations
   BIG_res <- data.frame()
-  
+
   y <- array(NA, n)
   probs <- array(NA, n)
 
@@ -452,13 +452,13 @@ Run_sim <- function(p, beta_T, n) {
   X <- combined[ids, ]
   X[, 1] <- runif(n, min = -1, max = 1)
   rm(X_plus_eps, combined, ids)
-    
+
   w <- c(rbind(replicate(n / 2, sample(c(0, 1)), simplify = TRUE)))
   strat <- rep(1:(n / 2), each = 2)
 
 
-  for (true_funtion in true_funtions) {
-    if (true_funtion == "linear") {
+  for (true_function in true_functions) {
+    if (true_function == "linear") {
       beta_X_value <- 1.25
       beta_X <- rep(beta_X_value, p)
       beta_0 <- -0.5
@@ -477,7 +477,7 @@ Run_sim <- function(p, beta_T, n) {
       } else {
         X_run <- X
       }
-      one_res <- Do_Inference(y, X_run, w, strat, p, beta_T, n, true_funtion, regress_on_X)
+      one_res <- Do_Inference(y, X_run, w, strat, p, beta_T, n, true_function, regress_on_X)
       BIG_res <- rbind(BIG_res, one_res)
     }
   }
@@ -558,7 +558,7 @@ res_mod <- results %>%
     sq_err = (beta_hat_T - beta_T)^2,
     rej = pval < 0.05
   ) %>%
-  group_by(p, beta_T, true_funtion, regress_on_X, n, inference) %>%
+  group_by(p, beta_T, true_function, regress_on_X, n, inference) %>%
   summarize(
     num_na = sum(is.na(pval)),
     num_real = sum(!is.na(pval)),
@@ -568,7 +568,7 @@ res_mod <- results %>%
     coverage = mean(covered, na.rm = TRUE),
     mean_beta_hat_T = mean(beta_hat_T, na.rm = TRUE),
     mean_sq_beta_hat_T = mean(ssq_beta_hat_T, trim = 0.001, na.rm = TRUE),
-    significant = binom.test(sum(rej, na.rm = TRUE), n = (n() - num_na),  p = 0.05)$p.value,
+    significant = binom.test(sum(rej, na.rm = TRUE), n = (n() - num_na), p = 0.05)$p.value,
     coverage_significant = binom.test(x = sum(covered, na.rm = TRUE), n = sum(!is.na(covered)), p = 0.95)$p.value,
     mean_g = mean(g, na.rm = TRUE),
     .groups = "drop"
@@ -578,32 +578,31 @@ res_mod <- results %>%
 write.csv(res_mod, file = "C:/temp/bclogit_simulation_results/combined.csv", row.names = FALSE)
 
 
-
 ############### REAL DATA ###############
 
 library(riskCommunicator)
 data("framingham")
-D=data.table(framingham)
-D=D[!is.na(CIGPDAY)]
-D=D[!is.na(BMI)]
-D=D[!is.na(HEARTRTE)]
-D=D[!is.na(TOTCHOL)]
-D=D[!is.na(SYSBP)]
-D=D[!is.na(DIABP)]
-D=D[!is.na(CURSMOKE)]
-D=D[!is.na(DIABETES)]
-D=D[!is.na(BPMEDS)]
+D <- data.table(framingham)
+D <- D[!is.na(CIGPDAY)]
+D <- D[!is.na(BMI)]
+D <- D[!is.na(HEARTRTE)]
+D <- D[!is.na(TOTCHOL)]
+D <- D[!is.na(SYSBP)]
+D <- D[!is.na(DIABP)]
+D <- D[!is.na(CURSMOKE)]
+D <- D[!is.na(DIABETES)]
+D <- D[!is.na(BPMEDS)]
 
-Dba = D[PERIOD %in% c(1,3)]
+Dba <- D[PERIOD %in% c(1, 3)]
 Dba[, num_periods_per_id := .N, by = RANDID]
-Dba = Dba[num_periods_per_id == 2]
+Dba <- Dba[num_periods_per_id == 2]
 Dba[, num_periods_per_id := NULL]
 rm(framingham, D)
 
-strat = Dba$RANDID
-w = ifelse(Dba$PERIOD == 3, 1, 0)
-y = Dba$PREVCHD 
-X = Dba[, c("TOTCHOL", "SYSBP", "DIABP", "CURSMOKE", "CIGPDAY", "BMI", "DIABETES", "BPMEDS", "HEARTRTE")]
+strat <- Dba$RANDID
+w <- ifelse(Dba$PERIOD == 3, 1, 0)
+y <- Dba$PREVCHD
+X <- Dba[, c("TOTCHOL", "SYSBP", "DIABP", "CURSMOKE", "CIGPDAY", "BMI", "DIABETES", "BPMEDS", "HEARTRTE")]
 
 
 res <- data.frame(
@@ -626,7 +625,7 @@ X_dis <- matched_data$X_diffs_discordant
 y_dis <- matched_data$y_diffs_discordant
 w_dis <- matched_data$treatment_diffs_discordant
 dis_idx <- matched_data$discordant_idx + 1
-strat_con = strat[setdiff(1:length(strat), dis_idx)]
+strat_con <- strat[setdiff(1:length(strat), dis_idx)]
 
 # CLOGIT  #
 beta_hat_T <- NA
@@ -657,8 +656,10 @@ for (prior_type in c("naive", "G prior", "PMP", "Hybrid")) {
     beta_hat_T <- model$betaT
     ssq_beta_hat_T <- model$ssq_beta_T
     pval <- model$pval
-    beta_hat_T ; ssq_beta_hat_T ; pval
-    g = model$g
+    beta_hat_T
+    ssq_beta_hat_T
+    pval
+    g <- model$g
     res <- rbind(res, data.frame(
       inference = paste0("bayesian_", prior_type, "_", concordant_fit),
       beta_hat_T = beta_hat_T,
@@ -667,14 +668,3 @@ for (prior_type in c("naive", "G prior", "PMP", "Hybrid")) {
     ))
   }
 }
-
-
-
-
-
-
-
-
-
-
-

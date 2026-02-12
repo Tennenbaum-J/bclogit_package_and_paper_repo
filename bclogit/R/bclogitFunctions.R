@@ -134,16 +134,8 @@ bclogit.default <- function(response = NULL,
     b_con <- rep(0, ncol(X_concordant) + 1)
     Sigma_con <- diag(101, ncol(X_concordant) + 1)
   } else {
-    if (concordant_method == "GLM") {
+      if (concordant_method == "GLM") {
       concordant_model <- glm(y_concordant ~ treatment_concordant + X_concordant, family = "binomial")
-      b_con <- summary(concordant_model)$coefficients[, 1]
-      Sigma_con <- pmin(vcov(concordant_model), 100)
-
-      b_con <- c(0, b_con[-c(1, 2)])
-      Sigma_con <- Sigma_con[-1, -1]
-      Sigma_con[1, ] <- 0
-      Sigma_con[, 1] <- 0
-      Sigma_con[1, 1] <- 100
     }
     if (concordant_method == "GEE") {
       concordant_model <- geepack::geeglm(
@@ -153,15 +145,6 @@ bclogit.default <- function(response = NULL,
         corstr = "exchangeable",
         data = data.frame(y_concordant, treatment_concordant, X_concordant, strata_concordant)
       )
-
-      b_con <- summary(concordant_model)$coefficients[, 1]
-      Sigma_con <- pmin(vcov(concordant_model), 100)
-
-      b_con <- c(0, b_con[-c(1, 2)])
-      Sigma_con <- Sigma_con[-1, -1]
-      Sigma_con[1, ] <- 0
-      Sigma_con[, 1] <- 0
-      Sigma_con[1, 1] <- 100
     }
     if (concordant_method == "GLMM") {
       concordant_model <- glmmTMB::glmmTMB(
@@ -169,12 +152,67 @@ bclogit.default <- function(response = NULL,
         family = binomial(),
         data   = data.frame(y_concordant, treatment_concordant, X_concordant, strata_concordant)
       )
+    }
+    
+    # Standardize prior extraction
+    if (!is.null(concordant_model)) {
 
-      b_con <- summary(concordant_model)$coefficients$cond[, 1]
-      Sigma_con <- pmin(vcov(concordant_model)$cond, 100)
 
-      b_con <- c(0, b_con[-c(1, 2)])
-      Sigma_con <- Sigma_con[-1, -1]
+      # Get full coefficients including NAs for aliased terms
+      if (concordant_method == "GLM") {
+          full_b_con <- coef(concordant_model)
+          full_Sigma_con <- vcov(concordant_model) 
+      } else if (concordant_method == "GEE") {
+          full_b_con <- coef(concordant_model)
+          full_Sigma_con <- vcov(concordant_model)
+      } else if (concordant_method == "GLMM") {
+          full_b_con <- glmmTMB::fixef(concordant_model)$cond
+          full_Sigma_con <- vcov(concordant_model)$cond
+      }
+      
+      # Identify target names: treatment + X columns
+      target_names <- c("treatment_concordant", paste0("X_concordant", X_model_matrix_col_names))
+      
+      # Construct target vector
+      K_stan <- ncol(X_diffs_discordant) + 1
+      b_con <- numeric(K_stan)
+      Sigma_con <- diag(100, K_stan)
+      
+      # Match coefficients
+      for (i in seq_along(target_names)) {
+          t_name <- target_names[i]
+          if (t_name %in% names(full_b_con)) {
+             val <- full_b_con[t_name]
+             if (!is.na(val)) {
+                 b_con[i] <- val
+             }
+          }
+      }
+      
+      # Match covariance
+      valid_indices <- which(names(full_b_con) %in% target_names)
+      valid_names <- names(full_b_con)[valid_indices]
+      
+      if (length(valid_names) > 0) {
+          vcov_names <- rownames(full_Sigma_con)
+          for (r_name in valid_names) {
+              if (r_name %in% vcov_names) {
+                  target_idx_r <- match(r_name, target_names)
+                  for (c_name in valid_names) {
+                      if (c_name %in% vcov_names) {
+                          target_idx_c <- match(c_name, target_names)
+                          val <- full_Sigma_con[r_name, c_name]
+                          if (!is.na(val)) {
+                              Sigma_con[target_idx_r, target_idx_c] <- val
+                          }
+                      }
+                  }
+              }
+          }
+      }
+      
+      # Override treatment prior
+      b_con[1] <- 0
       Sigma_con[1, ] <- 0
       Sigma_con[, 1] <- 0
       Sigma_con[1, 1] <- 100
@@ -185,8 +223,28 @@ bclogit.default <- function(response = NULL,
   if (exists("b_con") && any(is.na(b_con))) {
     b_con[is.na(b_con)] <- 0
   }
-  if (exists("Sigma_con") && any(is.na(Sigma_con))) {
-    Sigma_con[is.na(Sigma_con)] <- 100
+  if (exists("Sigma_con")) {
+    items_fixed <- FALSE
+    if (any(is.na(Sigma_con))) {
+      warning("Prior covariance contains NAs. Replacing with diffuse prior.")
+      Sigma_con <- diag(100, nrow(Sigma_con))
+      b_con <- rep(0, length(b_con))
+      items_fixed <- TRUE
+    } 
+    
+    if (!items_fixed) {
+       # Check positive definiteness
+       is_pd <- tryCatch({
+         chol(Sigma_con)
+         TRUE
+       }, error = function(e) FALSE)
+       
+       if (!is_pd) {
+         warning("Prior covariance is not positive definite. Replacing with diffuse prior.")
+         Sigma_con <- diag(100, nrow(Sigma_con))
+         b_con <- rep(0, length(b_con))
+       }
+    }
   }
 
   discordant_model <- NULL
