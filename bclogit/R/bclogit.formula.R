@@ -1,11 +1,6 @@
-#' @param formula A symbolic description of the model to be fitted.
-#' @param data An optional data frame containing the variables in the model.
-#' @param treatment Optional vector specifying the treatment variable.
-#' @param strata Vector specifying the strata (matched pairs).
-#' @param ... Additional arguments passed to the default method.
 #' @export
 #' @describeIn bclogit Formula method
-bclogit.formula <- function(formula, data, treatment, strata = NULL, ...) {
+bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL, concordant_method = "GLM", prior_type = "Naive", ...) {
     cl <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action", "drop.unused.levels"), names(cl), 0L)
     cl <- cl[c(1L, m)]
@@ -37,5 +32,15 @@ bclogit.formula <- function(formula, data, treatment, strata = NULL, ...) {
         t_name <- "treatment"
     }
 
-    bclogit.default(response = response, data = X, treatment = trt_vec, strata = strata_vec, treatment_name = t_name, call = full_cl, ...)
+    bclogit.default(
+        y = response,
+        X = X,
+        treatment = trt_vec,
+        strata = strata_vec,
+        treatment_name = t_name,
+        call = full_cl,
+        concordant_method = concordant_method,
+        prior_type = prior_type,
+        ...
+    )
 }

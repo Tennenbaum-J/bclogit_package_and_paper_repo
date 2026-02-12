@@ -4,13 +4,7 @@
 \alias{confint.bclogit}
 \title{Credible Intervals for bclogit Parameters}
 \usage{
-\method{confint}{bclogit}(
-  object,
-  parm,
-  level = 0.95,
-  type = c("quantile", "HPD_one", "HPD_many"),
-  ...
-)
+\method{confint}{bclogit}(object, parm, level = 0.95, type = "quantile", ...)
 }
 \arguments{
 \item{object}{A \code{bclogit} object.}
@@ -19,7 +13,7 @@
 
 \item{level}{The confidence level required (default 0.95).}
 
-\item{type}{Type of interval to compute: "quantile" (default) or "HPD" (Highest Posterior Density).}
+\item{type}{Type of interval to compute: "quantile" (default), "HPD_one" (unimodal HPD interval via coda), "HPD_many" (multimodal HPD interval via ggdist).}
 
 \item{...}{Additional arguments.}
 }

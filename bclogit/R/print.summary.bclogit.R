@@ -16,22 +16,6 @@ print.summary.bclogit <- function(x, digits = 4, ...) {
 
     if (!is.null(x$prior_info$mu)) {
         cat("\nPrior Information (from concordant data):\n")
-        # Format prior means nicely.
-        # x$prior_info$mu is a vector.
-        # We know the first element corresponds to treatment if using GLM/GEE setup in bclogitFunctions
-        # b_con was: c(0, b_con[-c(1, 2)]) -> wait, let's check bclogitFunctions.R again to be sure relative to names.
-        # In bclogitFunctions: b_con <- c(0, b_con[-c(1, 2)]) where 1 was intercept, 2 was treatment?
-        # Typically the prior is on the *nuisance* parameters + treatment?
-        # Actually in bclogitFunctions:
-        # Treatment coeff in concordant was set to 0 in b_con (first element).
-        # "b_con <- c(0, b_con[-c(1, 2)])"
-        # The code sets index 1 to 0.
-
-        # Let's just print the prior vector.
-        # It aligns with coefficients?
-        # The Stan models use `mu` vector.
-        # The prior `mu` dimension matches the number of coefficients in the discordant model (treatment + covariates).
-        # So we can try to label them.
 
         prior_mu <- x$prior_info$mu
         if (length(prior_mu) == nrow(x$coefficients)) {

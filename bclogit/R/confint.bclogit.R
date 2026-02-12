@@ -5,11 +5,11 @@
 #' @param object A `bclogit` object.
 #' @param parm A specification of which parameters to be given credible intervals, either a vector of numbers or a vector of names. If missing, all parameters are considered.
 #' @param level The confidence level required (default 0.95).
-#' @param type Type of interval to compute: "quantile" (default) or "HPD" (Highest Posterior Density).
+#' @param type Type of interval to compute: "quantile" (default), "HPD_one" (unimodal HPD interval via coda), "HPD_many" (multimodal HPD interval via ggdist).
 #' @param ... Additional arguments.
 #' @return A matrix (or vector) with columns giving lower and upper confidence limits for each parameter.
 #' @export
-confint.bclogit <- function(object, parm, level = 0.95, type = c("quantile", "HPD_one", "HPD_many"), ...) {
+confint.bclogit <- function(object, parm, level = 0.95, type = "quantile", ...) {
     type <- match.arg(type)
 
     if (is.null(object$model)) {

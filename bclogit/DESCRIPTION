@@ -32,8 +32,9 @@ RoxygenNote: 7.3.2
 Collate:
     'RcppExports.R'
     'bclogit.R'
-    'bclogitFunctions.R'
+    'bclogit_S3.R'
     'bclogit.formula.R'
+    'default.bclogit.R'
     'coef.bclogit.R'
     'confint.bclogit.R'
     'formula.bclogit.R'
