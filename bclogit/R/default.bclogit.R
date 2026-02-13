@@ -61,8 +61,6 @@ bclogit.default <- function(y = NULL,
   treatment_diffs_discordant <- NULL
 
   # Internal variables for processing
-  # Internal variables for processing
-  # y <- response # No longer needed as y is passed in
   X <- data_mat
   X_model_matrix_col_names <- colnames(X)
   if (is.null(X_model_matrix_col_names)) {
@@ -88,6 +86,11 @@ bclogit.default <- function(y = NULL,
   X_diffs_discordant <- matched_data$X_diffs_discordant
   y_diffs_discordant <- matched_data$y_diffs_discordant
   treatment_diffs_discordant <- matched_data$treatment_diffs_discordant
+
+  # Ensure column names match for model formula consistency
+  if (!is.null(X_concordant) && ncol(X_concordant) == length(X_model_matrix_col_names)) {
+    colnames(X_concordant) <- X_model_matrix_col_names
+  }
 
   # ------------------------------------------------------------------------
   # 3. Model Fitting
