@@ -6,7 +6,7 @@
 #' @title Bayesian Conditional Logistic Regression with Concordant Pairs
 #' @author 		Jacob Tennenbaum \email{Jacob.Tennenbaum51@@qmail.cuny.edu}
 #' @author 		Adam Kapelner \email{kapelner@@qc.cuny.edu}
-#' @references 	paper to go here
+#' @references 	Jacob Tennenbaum and Adam Kapelner (2026). "Improved Conditional Logistic Regression using Information in Concordant Pairs with Software." arXiv preprint arXiv:2602.08212.
 #' @keywords 	Conditional Logistic Regression
 #' @import      checkmate
 #' @import      Rcpp
