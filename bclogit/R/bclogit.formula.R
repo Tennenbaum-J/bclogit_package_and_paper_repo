@@ -1,6 +1,7 @@
 #' @export
 #' @describeIn bclogit Formula method
-bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL, concordant_method = "GLM", prior_type = "Naive", ...) {
+bclogit.formula <- function(x, data, treatment = NULL, strata = NULL, concordant_method = "GLM", prior_type = "Naive", ...) {
+    formula <- x
     cl <- match.call(expand.dots = FALSE)
     m <- match(c("formula", "data", "subset", "na.action", "drop.unused.levels"), names(cl), 0L)
     cl <- cl[c(1L, m)]
@@ -33,7 +34,7 @@ bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL, conc
     }
 
     bclogit.default(
-        y = response,
+        x = response,
         X = X,
         treatment = trt_vec,
         strata = strata_vec,

@@ -15,6 +15,12 @@ You can install the development version of `bclogit` from source:
 devtools::install()
 ```
 
+or use the command line
+
+```
+R CMD INSTALL bclogit
+```
+
 ## Usage
 
 Here is a basic example of how to use `bclogit`:

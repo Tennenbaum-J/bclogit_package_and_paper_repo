@@ -11,6 +11,7 @@
 #' @import      checkmate
 #' @import      Rcpp
 #' @importFrom  Rcpp evalCpp
+#' @importFrom  stats binomial coef cov formula glm median model.matrix model.response printCoefmat quantile sd terms vcov
 #' @useDynLib   bclogit, .registration=TRUE
 ##### Run "library(roxygen2); roxygenise("bclogit", clean = TRUE)" to regenerate all Rd files and NAMESPACE and DESCRIPTION file
 "_PACKAGE"

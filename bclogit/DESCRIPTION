@@ -1,44 +1,25 @@
 Package: bclogit
 Title: Conditional Logistic Regression
-Version: 0.0.0.9000
+Version: 1.0
 Authors@R: c(
     person("Jacob", "Tennenbaum", email = "Jacob.Tennenbaum51@qmail.cuny.edu", role = c("aut", "cre"), comment = c(ORCID = "0009-0006-1408-5035")),
     person("Adam", "Kapelner", email = "kapelner@qc.cuny.edu", role = c("aut"), comment = c(ORCID = "0000-0001-5985-6792"))
     )
-Description: Conditional Logistic Regression with Informative Priors
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Description: Performs inference for Bayesian conditional logistic regression with informative priors built from the concordant pair data. We include many options to build the priors. And we include many options during the inference step for estimation, testing and confidence set creation.
+License: GPL-3
 Encoding: UTF-8
 Depends:
     R (>= 4.0),
-    Rcpp (>= 1.0.14),
-    RcppEigen
+    Rcpp (>= 1.0.14)
 Imports:
     checkmate,
-    data.table,
-    doParallel,
     geepack,
     glmmTMB,
     rstan,
-    rstanarm,
     coda,
-    ggdist,
-    tibble
+    ggdist
 LinkingTo:
     Rcpp,
     RcppEigen
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
-Collate:
-    'RcppExports.R'
-    'bclogit.R'
-    'bclogit_S3.R'
-    'bclogit.formula.R'
-    'default.bclogit.R'
-    'coef.bclogit.R'
-    'confint.bclogit.R'
-    'formula.bclogit.R'
-    'print.summary.bclogit.R'
-    'summary.bclogit.R'
-    'vcov.bclogit.R'
-    'zzz.R'
+RoxygenNote: 7.3.3

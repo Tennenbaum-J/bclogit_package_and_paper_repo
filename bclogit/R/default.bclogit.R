@@ -1,8 +1,7 @@
-#' @param y A binary (0,1) vector containing the response of each subject.
 #' @param X A data.frame, data.table, or model.matrix containing the variables.
 #' @describeIn bclogit Default method for matrix/data input.
 #' @export
-bclogit.default <- function(y = NULL,
+bclogit.default <- function(x = NULL,
                             X = NULL,
                             treatment = NULL,
                             strata = NULL,
@@ -10,7 +9,9 @@ bclogit.default <- function(y = NULL,
                             prior_type = "Naive",
                             treatment_name = NULL,
                             call = NULL,
-                            chains = 4) {
+                            chains = 4,
+                            ...) {
+  y <- x
   # ------------------------------------------------------------------------
   # 1. Input Validation and Pre-processing
   # ------------------------------------------------------------------------

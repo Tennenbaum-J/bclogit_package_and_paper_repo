@@ -3,16 +3,16 @@
 #' This function fits a Bayesian conditional logistic regression model, incorporating
 #' information from concordant pairs to improve estimation.
 #'
-#' @param formula A symbolic description of the model to be fitted (for formula method).
+#' @param x For the formula method, a symbolic description of the model to be fitted. For the default method, a binary (0,1) vector containing the response of each subject.
 #' @param data A data.frame, data.table, or model.matrix containing the variables (optional for formula method).
 #' @param treatment Optional vector specifying the treatment variable (required for default method, or can be specified in formula method).
 #' @param strata Vector specifying the strata (matched pairs).
-#' @param y A binary (0,1) vector containing the response of each subject (for default method).
 #' @param X A data.frame, data.table, or model.matrix containing the variables (optional for formula method, required for default method).
 #' @param concordant_method The method to use for fitting the concordant pairs and reservoir. Options are "GLM", "GEE", and "GLMM".
 #' @param prior_type The type of prior to use for the discordant pairs. Options are "Naive", "G prior", "PMP", and "hybrid".
 #' @param chains Number of chains for Stan sampling. Default is 4.
 #' @param treatment_name Optional string name for the treatment variable.
+#' @param call Optional call object to store in the result.
 #' @param ... Additional arguments passed to the default method.
 #' @return A list of class `bclogit` containing:
 #'   \item{coefficients}{Estimated coefficients (posterior means).}
