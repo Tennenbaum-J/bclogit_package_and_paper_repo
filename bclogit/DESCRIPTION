@@ -21,5 +21,6 @@ Imports:
 LinkingTo:
     Rcpp,
     RcppEigen
+URL: https://github.com/Tennenbaum-J/bclogit_package_and_paper_repo
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

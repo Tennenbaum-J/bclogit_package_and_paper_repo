@@ -4,7 +4,7 @@
 \alias{print.summary.bclogit}
 \title{Print summary of a bclogit model}
 \usage{
-\method{print}{summary.bclogit}(x, digits = 4, ...)
+\method{print}{summary.bclogit}(x, digits = max(3, getOption("digits") - 3), ...)
 }
 \arguments{
 \item{x}{A \code{summary.bclogit} object.}
