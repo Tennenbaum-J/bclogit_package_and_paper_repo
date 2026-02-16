@@ -11,6 +11,18 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// calc_bisection_pvals_cpp
+NumericVector calc_bisection_pvals_cpp(const NumericMatrix& beta_post, int n_iter, int interval_type);
+RcppExport SEXP _bclogit_calc_bisection_pvals_cpp(SEXP beta_postSEXP, SEXP n_iterSEXP, SEXP interval_typeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::traits::input_parameter< const NumericMatrix& >::type beta_post(beta_postSEXP);
+    Rcpp::traits::input_parameter< int >::type n_iter(n_iterSEXP);
+    Rcpp::traits::input_parameter< int >::type interval_type(interval_typeSEXP);
+    rcpp_result_gen = Rcpp::wrap(calc_bisection_pvals_cpp(beta_post, n_iter, interval_type));
+    return rcpp_result_gen;
+END_RCPP
+}
 // process_matched_pairs_cpp
 List process_matched_pairs_cpp(const Eigen::VectorXi& strata, const Eigen::VectorXd& y, const Eigen::MatrixXd& X, const Eigen::VectorXd& treatment);
 RcppExport SEXP _bclogit_process_matched_pairs_cpp(SEXP strataSEXP, SEXP ySEXP, SEXP XSEXP, SEXP treatmentSEXP) {
@@ -25,8 +37,18 @@ BEGIN_RCPP
 END_RCPP
 }
 
+RcppExport SEXP _rcpp_module_boot_stan_fit4mvn_logistic_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4mvn_logistic_Hybrid_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4mvn_logistic_PMP_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4mvn_logistic_gprior_mod();
+
 static const R_CallMethodDef CallEntries[] = {
+    {"_bclogit_calc_bisection_pvals_cpp", (DL_FUNC) &_bclogit_calc_bisection_pvals_cpp, 3},
     {"_bclogit_process_matched_pairs_cpp", (DL_FUNC) &_bclogit_process_matched_pairs_cpp, 4},
+    {"_rcpp_module_boot_stan_fit4mvn_logistic_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4mvn_logistic_mod, 0},
+    {"_rcpp_module_boot_stan_fit4mvn_logistic_Hybrid_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4mvn_logistic_Hybrid_mod, 0},
+    {"_rcpp_module_boot_stan_fit4mvn_logistic_PMP_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4mvn_logistic_PMP_mod, 0},
+    {"_rcpp_module_boot_stan_fit4mvn_logistic_gprior_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4mvn_logistic_gprior_mod, 0},
     {NULL, NULL, 0}
 };
 

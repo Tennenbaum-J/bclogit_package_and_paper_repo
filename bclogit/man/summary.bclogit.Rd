@@ -4,12 +4,22 @@
 \alias{summary.bclogit}
 \title{Summarize a bclogit model}
 \usage{
-\method{summary}{bclogit}(object, conf.level = 0.95, ...)
+\method{summary}{bclogit}(object, level = 0.95, inference_method = "HPD_one", ...)
 }
 \arguments{
 \item{object}{A \code{bclogit} object.}
 
-\item{conf.level}{Confidence level for credible intervals (default 0.95).}
+\item{level}{Confidence level for credible intervals (default 0.95).}
+
+\item{inference_method}{Method used for both the displayed confidence set bounds and the
+p-value (computed via bisection over alpha). Options are:
+\code{"HPD_one"} (default) uses unimodal HPD intervals (C++) with 20 bisection iterations,
+\code{"HPD_many"} uses \code{ggdist::hdi} which supports disjoint (multimodal) HPD regions,
+with 50 bisection iterations (requires the \pkg{ggdist} package).
+Confidence set bounds are shown when the HPD is a single interval; if disjoint,
+they are set to \code{NA} (use \code{\link{confint.bclogit}} with \code{type = "HPD_many"}
+to see all intervals),
+\code{"CR"} uses equal-tailed credible intervals (quantile-based, C++) with 20 bisection iterations.}
 
 \item{...}{Additional arguments (not used).}
 }

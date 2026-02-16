@@ -8,32 +8,59 @@
 \title{Initialize a new bclogit model}
 \usage{
 \method{bclogit}{formula}(
-  x,
+  formula,
   data,
   treatment = NULL,
   strata = NULL,
+  subset = NULL,
+  na.action = NULL,
   concordant_method = "GLM",
   prior_type = "Naive",
+  chains = 4,
+  return_raw_stan_output = FALSE,
+  prior_variance_treatment = 100,
+  stan_refresh = 0,
   ...
 )
 
-bclogit(x, ...)
-
-\method{bclogit}{default}(
-  x = NULL,
-  X = NULL,
+bclogit(
+  formula,
+  data,
   treatment = NULL,
   strata = NULL,
+  subset = NULL,
+  na.action = NULL,
   concordant_method = "GLM",
   prior_type = "Naive",
-  treatment_name = NULL,
-  call = NULL,
   chains = 4,
+  return_raw_stan_output = FALSE,
+  prior_variance_treatment = 100,
+  stan_refresh = 0,
   ...
+)
+
+\method{bclogit}{default}(
+  formula = NULL,
+  data = NULL,
+  treatment = NULL,
+  strata = NULL,
+  subset = NULL,
+  na.action = NULL,
+  concordant_method = "GLM",
+  prior_type = "Naive",
+  chains = 4,
+  return_raw_stan_output = FALSE,
+  prior_variance_treatment = 100,
+  stan_refresh = 0,
+  ...,
+  y = NULL,
+  X = NULL,
+  treatment_name = NULL,
+  call = NULL
 )
 }
 \arguments{
-\item{x}{For the formula method, a symbolic description of the model to be fitted. For the default method, a binary (0,1) vector containing the response of each subject.}
+\item{formula}{For the formula method, a symbolic description of the model to be fitted.}
 
 \item{data}{A data.frame, data.table, or model.matrix containing the variables (optional for formula method).}
 
@@ -41,26 +68,43 @@ bclogit(x, ...)
 
 \item{strata}{Vector specifying the strata (matched pairs).}
 
+\item{subset}{An optional vector specifying a subset of observations.}
+
+\item{na.action}{A function which indicates what should happen when the data contain NAs.}
+
 \item{concordant_method}{The method to use for fitting the concordant pairs and reservoir. Options are "GLM", "GEE", and "GLMM".}
 
-\item{prior_type}{The type of prior to use for the discordant pairs. Options are "Naive", "G prior", "PMP", and "hybrid".}
+\item{prior_type}{The type of prior to use for the discordant pairs. Options are "Naive", "G prior", "PMP", and "Hybrid".}
 
-\item{...}{Additional arguments passed to the default method.}
+\item{chains}{Number of chains for Stan sampling. Default is 4.}
+
+\item{return_raw_stan_output}{Logical; if \code{TRUE}, the raw Stan posterior samples
+(iterations x chains x parameters) are stored in the returned object. Default \code{FALSE}.}
+
+\item{prior_variance_treatment}{Prior variance for the treatment coefficient in the
+covariance matrix \code{Sigma_con}. Default is 100.}
+
+\item{stan_refresh}{How often Stan reports sampling progress (in iterations).
+Default is 0 (silent). Set to a positive integer (e.g., 1 or 100) to see progress.}
+
+\item{...}{Additional arguments passed to \code{rstan::sampling} (e.g., \code{iter}, \code{warmup}, \code{thin}, \code{seed}, \code{control}).}
+
+\item{y}{For the default method, a binary (0,1) vector containing the response of each subject.}
 
 \item{X}{A data.frame, data.table, or model.matrix containing the variables.}
 
 \item{treatment_name}{Optional string name for the treatment variable.}
 
 \item{call}{Optional call object to store in the result.}
-
-\item{chains}{Number of chains for Stan sampling. Default is 4.}
 }
 \value{
 A list of class \code{bclogit} containing:
 \item{coefficients}{Estimated coefficients (posterior means).}
 \item{var}{Variance-covariance matrix of coefficients.}
 \item{model}{The fitted Stan model object.}
+\item{posterior_samples}{Raw posterior samples as a 3D array (iterations x chains x parameters) from \code{rstan::extract(model, permuted = FALSE)}. Only populated when \code{return_raw_stan_output = TRUE}; \code{NULL} otherwise.}
 \item{concordant_model}{The fitted model object for the concordant pairs/reservoir (GLM/GEE/GLMM).}
+\item{matched_data}{The processed matched pairs data from the premodeling step.}
 \item{prior_info}{Information about the prior derived from concordant pairs.}
 \item{call}{The function call.}
 \item{terms}{The model terms.}
@@ -81,7 +125,9 @@ information from concordant pairs to improve estimation.
 \examples{
 \dontrun{
 # Example usage
-fit <- bclogit(y ~ x1 + x2, data = mydata, treatment = trt, strata = id)
+data("fhs")
+fit <- bclogit(PREVHYP ~ TOTCHOL + CIGPDAY + BMI + HEARTRTE, 
+  data = fhs, treatment = PERIOD, strata = RANDID)
 summary(fit)
 }
 }

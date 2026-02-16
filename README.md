@@ -51,13 +51,15 @@ coef(fit)
 confint(fit)
 ```
 
+
 ## Features
 
 - **Standard Formula Interface**: Works like `glm` or `lm`.
 - **Bayesian Prior Integration**: Uses `rstan` to fit models with informative priors.
 - **Multiple Prior Types**: Supports "naive", "G prior", "PMP", and "hybrid".
 - **Concordant Pairs Method**: Supports "GLM", "GEE", and "GLMM" for the concordant pairs step.
+- We also implemented vanilla `clogit` which runs with a 5–10x speedup over `survival::clogit`. If you only want inference on the `j`th variable, you can set `do_inference_on_var = j` which gives the best speedup at large n: 9–11x at 10k–50k pairs.
 
 ## License
 
-This package is licensed under the MIT License.
+This package is licensed under GPL3.

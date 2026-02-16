@@ -1,28 +1,44 @@
+#' @param subset An optional vector specifying a subset of observations.
+#' @param na.action A function which indicates what should happen when the data contain NAs.
 #' @param X A data.frame, data.table, or model.matrix containing the variables.
 #' @describeIn bclogit Default method for matrix/data input.
 #' @export
-bclogit.default <- function(x = NULL,
-                            X = NULL,
+bclogit.default <- function(formula = NULL,
+                            data = NULL,
                             treatment = NULL,
                             strata = NULL,
+                            subset = NULL,
+                            na.action = NULL,
                             concordant_method = "GLM",
                             prior_type = "Naive",
-                            treatment_name = NULL,
-                            call = NULL,
                             chains = 4,
-                            ...) {
-  y <- x
+                            return_raw_stan_output = FALSE,
+                            prior_variance_treatment = 100,
+                            stan_refresh = 0,
+                            ...,
+                            y = NULL,
+                            X = NULL,
+                            treatment_name = NULL,
+                            call = NULL) {
   # ------------------------------------------------------------------------
   # 1. Input Validation and Pre-processing
   # ------------------------------------------------------------------------
   if (missing(treatment)) stop("The 'treatment' argument is required.")
+  assertVector(subset, null.ok = TRUE)
+  assertFunction(na.action, null.ok = TRUE)
+  assertChoice(prior_type, c("Naive", "G prior", "PMP", "Hybrid"))
+  assertCount(chains, positive = TRUE)
+  assertString(treatment_name, null.ok = TRUE)
 
   # Use copy of X if needed or just use X directly
   if (test_data_frame(X, types = c("numeric", "integer", "factor", "logical"))) {
-    data_mat <- model.matrix(~ 0 + ., data = X)
+    data_mat <- model.matrix(~ ., data = X)
+    if ("(Intercept)" %in% colnames(data_mat)) {
+      data_mat <- data_mat[, colnames(data_mat) != "(Intercept)", drop = FALSE]
+    }
   } else if (test_matrix(X, mode = "numeric")) {
     if (sd(X[, 1]) == 0) {
-      X[, 1] <- NULL
+      X <- X[, -1, drop = FALSE]
     }
     data_mat <- as.matrix(X)
   } else {
@@ -33,17 +49,48 @@ bclogit.default <- function(x = NULL,
   }
 
   n <- nrow(data_mat)
+  assertChoice(concordant_method, c("GLM", "GEE", "GLMM"))
 
-  assertString(concordant_method, c("GLM", "GEE", "GLMM"))
+  # Relaxed assertions to allow factors/characters, then convert
+  assertVector(y, any.missing = FALSE, len = n)
+  if (is.factor(y)) {
+    y <- as.numeric(as.character(y))
+  } else {
+    y <- as.numeric(y)
+  }
   assertNumeric(y, lower = 0, upper = 1, any.missing = FALSE, len = n)
+
+  assertVector(treatment, any.missing = FALSE, len = n)
+  if (is.factor(treatment)) {
+    treatment <- as.numeric(as.character(treatment))
+  } else {
+    treatment <- as.numeric(treatment)
+  }
   assertNumeric(treatment, lower = 0, upper = 1, any.missing = FALSE, len = n)
+
+  if (is.factor(strata) || is.character(strata)) {
+    strata <- as.numeric(as.factor(strata))
+  }
   assertNumeric(strata, any.missing = FALSE, len = n)
 
   if (!all(treatment %in% c(0, 1))) {
     stop("Treatment must be binary 0 or 1.")
   }
   if (is.null(treatment_name)) {
-    treatment_name <- deparse(substitute(treatment))
+    treatment_name <- paste(deparse(substitute(treatment)), collapse = "")
+  }
+
+  # Filter to keep only strata with exactly 2 observations
+  strata_counts <- table(strata)
+  valid_strata <- names(strata_counts)[strata_counts == 2]
+  keep_idx <- strata %in% as.numeric(valid_strata)
+  
+  if (!all(keep_idx)) {
+    y <- y[keep_idx]
+    data_mat <- data_mat[keep_idx, , drop = FALSE]
+    treatment <- treatment[keep_idx]
+    strata <- strata[keep_idx]
+    n <- length(y)
   }
 
   # Capture terms for summary/printing usage if possible (though we used matrix for fitting)
@@ -68,8 +115,8 @@ bclogit.default <- function(x = NULL,
     X_model_matrix_col_names <- paste0("X", 1:ncol(X))
   }
 
-  if (length(y) <= ncol(X) + 5) {
-    stop("Not enough rows. Must be at least the number of covariates plus 5")
+  if (length(y) <= ncol(X) + 2) {
+    stop("Not enough rows. Must be at least the number of covariates plus 2")
   }
 
 
@@ -93,6 +140,15 @@ bclogit.default <- function(x = NULL,
     colnames(X_concordant) <- X_model_matrix_col_names
   }
 
+  # Early check: need enough discordant pairs to fit
+  num_discordant <- length(y_diffs_discordant)
+  if (is.null(X_diffs_discordant) || num_discordant < ncol(X) + 2) {
+    stop(sprintf(
+      "There are not enough discordant pairs (%d found). Need at least %d to fit the model.",
+      num_discordant, ncol(X) + 2
+    ))
+  }
+
   # ------------------------------------------------------------------------
   # 3. Model Fitting
   # ------------------------------------------------------------------------
@@ -113,12 +169,14 @@ bclogit.default <- function(x = NULL,
       concordant_model <- glm(y_concordant ~ treatment_concordant + X_concordant, family = "binomial")
     }
     if (concordant_method == "GEE") {
+      gee_df <- data.frame(y_concordant, treatment_concordant, strata_concordant)
+      gee_df$X_concordant <- X_concordant
       concordant_model <- geepack::geeglm(
         y_concordant ~ treatment_concordant + X_concordant,
         id = strata_concordant,
         family = binomial(link = "logit"),
         corstr = "exchangeable",
-        data = data.frame(y_concordant, treatment_concordant, X_concordant, strata_concordant)
+        data = gee_df
       )
     }
     if (concordant_method == "GLMM") {
@@ -137,7 +195,11 @@ bclogit.default <- function(x = NULL,
         full_Sigma_con <- vcov(concordant_model)
       } else if (concordant_method == "GEE") {
         full_b_con <- coef(concordant_model)
-        full_Sigma_con <- vcov(concordant_model)
+        # Use model-based (naive) covariance instead of sandwich estimator,
+        # which can be degenerate (negative variances) for small cluster sizes
+        full_Sigma_con <- concordant_model$geese$vbeta.naiv
+        rownames(full_Sigma_con) <- names(full_b_con)
+        colnames(full_Sigma_con) <- names(full_b_con)
       } else if (concordant_method == "GLMM") {
         full_b_con <- glmmTMB::fixef(concordant_model)$cond
         full_Sigma_con <- vcov(concordant_model)$cond
@@ -188,7 +250,7 @@ bclogit.default <- function(x = NULL,
       b_con[1] <- 0
       Sigma_con[1, ] <- 0
       Sigma_con[, 1] <- 0
-      Sigma_con[1, 1] <- 100
+      Sigma_con[1, 1] <- prior_variance_treatment
     }
   }
 
@@ -199,9 +261,8 @@ bclogit.default <- function(x = NULL,
   if (exists("Sigma_con")) {
     items_fixed <- FALSE
     if (any(is.na(Sigma_con))) {
-      warning("Prior covariance contains NAs. Replacing with diffuse prior.")
+      warning("Prior covariance contains NAs. Replacing with independent and diffuse prior.")
       Sigma_con <- diag(100, nrow(Sigma_con))
-      b_con <- rep(0, length(b_con))
       items_fixed <- TRUE
     }
 
@@ -216,9 +277,44 @@ bclogit.default <- function(x = NULL,
       )
 
       if (!is_pd) {
-        warning("Prior covariance is not positive definite. Replacing with diffuse prior.")
-        Sigma_con <- diag(100, nrow(Sigma_con))
-        b_con <- rep(0, length(b_con))
+        if (concordant_method == "GEE") {
+          warning("GEE prior covariance is not positive definite (common with small clusters). Falling back to GLM covariance for the prior.")
+          glm_fallback <- glm(y_concordant ~ treatment_concordant + X_concordant, family = "binomial")
+          full_b_fb <- coef(glm_fallback)
+          full_S_fb <- vcov(glm_fallback)
+          # Re-extract into b_con / Sigma_con using the same matching logic
+          b_con <- numeric(K_stan)
+          Sigma_con <- diag(100, K_stan)
+          for (i in seq_along(target_names)) {
+            t_name <- target_names[i]
+            if (t_name %in% names(full_b_fb)) {
+              val <- full_b_fb[t_name]
+              if (!is.na(val)) b_con[i] <- val
+            }
+          }
+          vcov_names_fb <- rownames(full_S_fb)
+          valid_names_fb <- names(full_b_fb)[names(full_b_fb) %in% target_names]
+          for (r_name in valid_names_fb) {
+            if (r_name %in% vcov_names_fb) {
+              target_idx_r <- match(r_name, target_names)
+              for (c_name in valid_names_fb) {
+                if (c_name %in% vcov_names_fb) {
+                  target_idx_c <- match(c_name, target_names)
+                  val <- full_S_fb[r_name, c_name]
+                  if (!is.na(val)) Sigma_con[target_idx_r, target_idx_c] <- val
+                }
+              }
+            }
+          }
+          b_con[1] <- 0
+          Sigma_con[1, ] <- 0
+          Sigma_con[, 1] <- 0
+          Sigma_con[1, 1] <- prior_variance_treatment
+          Sigma_con <- (Sigma_con + t(Sigma_con)) / 2
+        } else {
+          warning("Prior covariance is not positive definite. Replacing with independent and diffuse prior.")
+          Sigma_con <- diag(100, nrow(Sigma_con))
+        }
       }
     }
   }
@@ -227,23 +323,23 @@ bclogit.default <- function(x = NULL,
   converged_discordant <- NULL
 
   # --- Discordant Pairs Model ---
-  if (length(y_diffs_discordant) < ncol(X_diffs_discordant) + 5) {
-    stop("There are not enough discordant pairs. The model will not be fit .")
+  if (length(y_diffs_discordant) < ncol(X_diffs_discordant) + 2) {
+    stop("There are not enough discordant pairs. The model will not be fit.")
   } else {
     Sigma_con <- (Sigma_con + t(Sigma_con)) / 2
     y_dis_0_1 <- ifelse(y_diffs_discordant == -1, 0, 1)
     wX_dis <- cbind(treatment_diffs_discordant, X_diffs_discordant)
 
-    stan_file <- switch(prior_type,
-      "Naive" = "mvn_logistic.stan",
-      "G prior" = "mvn_logistic_gprior.stan",
-      "PMP" = "mvn_logistic_PMP.stan",
-      "Hybrid" = "mvn_logistic_Hybrid.stan",
+    stan_model_name <- switch(prior_type,
+      "Naive" = "mvn_logistic",
+      "G prior" = "mvn_logistic_gprior",
+      "PMP" = "mvn_logistic_PMP",
+      "Hybrid" = "mvn_logistic_Hybrid",
       stop("Unknown prior type")
     )
 
-    # Get compiled model (cached)
-    stan_mod <- get_stan_model(stan_file)
+    # Get pre-compiled model from rstantools
+    stan_mod <- stanmodels[[stan_model_name]]
 
     if (prior_type %in% c("Naive", "G prior")) {
       data_list <- list(
@@ -274,7 +370,7 @@ bclogit.default <- function(x = NULL,
     # Sample from the model
     discordant_model <- tryCatch(
       {
-        rstan::sampling(stan_mod, data = data_list, refresh = 0, chains = chains)
+        rstan::sampling(stan_mod, data = data_list, refresh = stan_refresh, chains = chains, ...)
       },
       error = function(e) {
         warning(sprintf("Sampling failed: %s", e$message))
@@ -291,10 +387,15 @@ bclogit.default <- function(x = NULL,
   coefficients <- NULL
   var_cov <- NULL
 
+  posterior_samples <- NULL
+
   if (!is.null(discordant_model)) {
     # Extract posterior samples
-
     sims <- rstan::extract(discordant_model)
+    if (return_raw_stan_output) {
+      # Raw samples array: iterations x chains x parameters
+      posterior_samples <- rstan::extract(discordant_model, permuted = FALSE)
+    }
 
     if (prior_type %in% c("Naive", "G prior")) {
       beta_post <- sims$beta
@@ -324,7 +425,9 @@ bclogit.default <- function(x = NULL,
     coefficients = coefficients,
     var = var_cov,
     model = discordant_model,
+    posterior_samples = posterior_samples,
     concordant_model = concordant_model,
+    matched_data = matched_data,
     prior_info = list(
       mu = if (exists("b_con")) b_con else NULL,
       Sigma = if (exists("Sigma_con")) Sigma_con else NULL
@@ -347,21 +450,3 @@ bclogit.default <- function(x = NULL,
   return(res)
 }
 
-#' Helper to get compiled stan model from cache
-#' @keywords internal
-get_stan_model <- function(file_name) {
-  # Check if model exists in globals
-  if (!exists(file_name, envir = bclogit_globals)) {
-    message(paste("Compiling", file_name, "..."))
-    stan_file_path <- system.file(file.path("stan", file_name), package = "bclogit")
-    if (stan_file_path == "") {
-      stop(paste("Stan file not found:", file_name))
-    }
-
-    # Compile and assign to globals
-    mod <- rstan::stan_model(file = stan_file_path)
-    assign(file_name, mod, envir = bclogit_globals)
-  }
-
-  return(get(file_name, envir = bclogit_globals))
-}

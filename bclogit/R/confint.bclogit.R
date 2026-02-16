@@ -5,11 +5,13 @@
 #' @param object A `bclogit` object.
 #' @param parm A specification of which parameters to be given credible intervals, either a vector of numbers or a vector of names. If missing, all parameters are considered.
 #' @param level The confidence level required (default 0.95).
-#' @param type Type of interval to compute: "quantile" (default), "HPD_one" (unimodal HPD interval via coda), "HPD_many" (multimodal HPD interval via ggdist).
+#' @param type Type of interval to compute: "HPD_one" (default unimodal HPD interval via coda), "CR" (equal-tailed credible region), "HPD_many" (multimodal HPD interval via ggdist).
 #' @param ... Additional arguments.
-#' @return A matrix (or vector) with columns giving lower and upper confidence limits for each parameter.
+#' @return A matrix with columns \code{lower} and \code{upper}.
+#'   For \code{"HPD_many"}, a parameter may appear on multiple rows when the interval is disjoint.
+#'   The matrix has a \code{Probability} attribute.
 #' @export
-confint.bclogit <- function(object, parm, level = 0.95, type = "quantile", ...) {
+confint.bclogit <- function(object, parm, level = 0.95, type = c("HPD_one", "CR", "HPD_many"), ...) {
     type <- match.arg(type)
 
     if (is.null(object$model)) {
@@ -41,59 +43,37 @@ confint.bclogit <- function(object, parm, level = 0.95, type = "quantile", ...) 
 
     beta_subset <- beta_post[, present_parms, drop = FALSE]
 
-    if (type == "quantile") {
+    # Helper to normalize ggdist::hdi output column names
+    normalize_hdi <- function(h) {
+        h_df <- as.data.frame(h)
+        if (ncol(h_df) >= 2) {
+            colnames(h_df)[1:2] <- c("lower", "upper")
+        }
+        h_df
+    }
+
+    if (type == "CR") {
         alpha <- (1 - level) / 2
         probs <- c(alpha, 1 - alpha)
-        ci <- apply(beta_subset, 2, quantile, probs = probs)
-        return(t(ci))
+        res <- t(apply(beta_subset, 2, quantile, probs = probs))
+        colnames(res) <- c("lower", "upper")
     } else if (type == "HPD_one") {
         # Standard Unimodal HPD Interval (coda)
         mcmc_obj <- coda::mcmc(beta_subset)
-        ci <- coda::HPDinterval(mcmc_obj, prob = level)
-        return(ci)
+        res <- coda::HPDinterval(mcmc_obj, prob = level)
     } else {
-        # "HPD_many" (ggdist) - supports multimodal / multiple intervals
-        # Requires transforming to long format for ggdist::hdi
-        # We return a tibble/data.frame here as the structure might be complex
-
-        # Convert to tidy format
-        beta_df <- as.data.frame(beta_subset)
-        beta_long <- do.call(rbind, lapply(names(beta_df), function(p) {
-            data.frame(Parameter = p, value = beta_df[[p]])
-        }))
-
-        # Calculate HDI
-        # ggdist::hdi expects a vector of values. We can group by Parameter.
-        # We can use dplyr if available or base split.
-
-        # Using base R split + lapply to avoid heavy dplyr dependency inside the function body if possible,
-        # but we imported tibble/ggdist so we likely can use them.
-        # However, ggdist::hdi works on vectors.
-
-        res_list <- lapply(split(beta_long, beta_long$Parameter), function(sub_df) {
-            # Loop over levels to handle vector input safely
-            do.call(rbind, lapply(level, function(l) {
-                h <- ggdist::hdi(sub_df$value, .width = l)
-                h_df <- as.data.frame(h)
-                # ggdist returns matrix with unnamed columns or V1, V2
-                # We standardize to lower/upper
-                if (ncol(h_df) == 2) {
-                    colnames(h_df) <- c("lower", "upper")
-                } else {
-                    # Fallback if structure is different
-                    names(h_df) <- paste0("col", 1:ncol(h_df))
-                }
-
-                # Add metadata
-                h_df$Parameter <- sub_df$Parameter[1]
-                h_df$.width <- l
-                h_df
-            }))
+        # "HPD_many" (ggdist) - supports multimodal / disjoint intervals
+        if (!requireNamespace("ggdist", quietly = TRUE)) {
+            stop("Package 'ggdist' is required for 'HPD_many' intervals. Please install it or use 'HPD_one'.")
+        }
+        res_list <- lapply(present_parms, function(p) {
+            h_df <- normalize_hdi(ggdist::hdi(beta_subset[, p], .width = level))
+            mat <- as.matrix(h_df[, c("lower", "upper"), drop = FALSE])
+            rownames(mat) <- rep(p, nrow(mat))
+            mat
         })
-
         res <- do.call(rbind, res_list)
-        # Reorder columns to put Parameter first
-        res <- res[, c("Parameter", setdiff(names(res), "Parameter"))]
-        return(res)
     }
+    attr(res, "Probability") <- level
+    return(res)
 }

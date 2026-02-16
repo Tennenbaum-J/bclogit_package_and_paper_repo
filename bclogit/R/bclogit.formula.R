@@ -1,13 +1,22 @@
 #' @export
 #' @describeIn bclogit Formula method
-bclogit.formula <- function(x, data, treatment = NULL, strata = NULL, concordant_method = "GLM", prior_type = "Naive", ...) {
-    formula <- x
-    cl <- match.call(expand.dots = FALSE)
-    m <- match(c("formula", "data", "subset", "na.action", "drop.unused.levels"), names(cl), 0L)
+bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL,
+                            subset = NULL, na.action = NULL,
+                            concordant_method = "GLM", prior_type = "Naive",
+                            chains = 4, return_raw_stan_output = FALSE,
+                            prior_variance_treatment = 100, stan_refresh = 0, ...) {
+    assertClass(formula, "formula")
+    # subset and na.action are handled by model.frame; do not touch subset here to avoid premature evaluation
+    assertFunction(na.action, null.ok = TRUE)
+    assertChoice(concordant_method, c("GLM", "GEE", "GLMM"))
+    assertChoice(prior_type, c("Naive", "G prior", "PMP", "Hybrid"))
+
+    cl <- match.call(expand.dots = TRUE)
+    m <- match(c("formula", "data", "subset", "na.action", "treatment", "strata"), names(cl), 0L)
     cl <- cl[c(1L, m)]
     cl[[1L]] <- quote(stats::model.frame)
     mf <- eval(cl, parent.frame())
-
+    
     response <- model.response(mf, "numeric")
     mt <- attr(mf, "terms")
     X <- model.matrix(mt, mf)
@@ -16,25 +25,22 @@ bclogit.formula <- function(x, data, treatment = NULL, strata = NULL, concordant
         X <- X[, -1, drop = FALSE]
     }
 
-    if (missing(data)) data <- environment(formula)
+    trt_vec <- mf[["(treatment)"]]
+    strata_vec <- mf[["(strata)"]]
 
-    if (missing(treatment)) stop("The 'treatment' argument is required.")
-
-    trt_vec <- eval(substitute(treatment), data, parent.frame())
-    strata_vec <- eval(substitute(strata), data, parent.frame())
+    if (is.null(trt_vec)) stop("The 'treatment' argument is required.")
+    if (is.null(strata_vec)) stop("The 'strata' argument is required.")
 
     # Extract treatment name from call
-    # We use the full match.call() which has all arguments
     full_cl <- match.call()
     if ("treatment" %in% names(full_cl)) {
         t_name <- deparse(full_cl$treatment)
-        # Clean up if it's long or complex? usually deparse is fine.
     } else {
         t_name <- "treatment"
     }
 
     bclogit.default(
-        x = response,
+        y = response,
         X = X,
         treatment = trt_vec,
         strata = strata_vec,
@@ -42,6 +48,10 @@ bclogit.formula <- function(x, data, treatment = NULL, strata = NULL, concordant
         call = full_cl,
         concordant_method = concordant_method,
         prior_type = prior_type,
+        chains = chains,
+        return_raw_stan_output = return_raw_stan_output,
+        prior_variance_treatment = prior_variance_treatment,
+        stan_refresh = stan_refresh,
         ...
     )
 }

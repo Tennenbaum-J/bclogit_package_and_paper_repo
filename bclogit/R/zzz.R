@@ -1,8 +1,6 @@
-.onLoad <- function(libname, pkgname) {
-    # Initialize globals in the package namespace
-    assign("bclogit_globals", new.env(), envir = parent.env(environment()))
-}
-
+#' @importFrom methods new
+#' @importFrom rstantools rstan_config
+#' @importFrom RcppParallel CxxFlags
 .onAttach <- function(libname, pkgname) {
     packageStartupMessage(
         paste("Welcome to bclogit v",

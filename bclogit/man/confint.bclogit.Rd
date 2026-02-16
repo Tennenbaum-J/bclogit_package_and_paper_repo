@@ -4,7 +4,7 @@
 \alias{confint.bclogit}
 \title{Credible Intervals for bclogit Parameters}
 \usage{
-\method{confint}{bclogit}(object, parm, level = 0.95, type = "quantile", ...)
+\method{confint}{bclogit}(object, parm, level = 0.95, type = c("HPD_one", "CR", "HPD_many"), ...)
 }
 \arguments{
 \item{object}{A \code{bclogit} object.}
@@ -13,12 +13,14 @@
 
 \item{level}{The confidence level required (default 0.95).}
 
-\item{type}{Type of interval to compute: "quantile" (default), "HPD_one" (unimodal HPD interval via coda), "HPD_many" (multimodal HPD interval via ggdist).}
+\item{type}{Type of interval to compute: "HPD_one" (default unimodal HPD interval via coda), "CR" (equal-tailed credible region), "HPD_many" (multimodal HPD interval via ggdist).}
 
 \item{...}{Additional arguments.}
 }
 \value{
-A matrix (or vector) with columns giving lower and upper confidence limits for each parameter.
+A matrix with columns \code{lower} and \code{upper}.
+For \code{"HPD_many"}, a parameter may appear on multiple rows when the interval is disjoint.
+The matrix has a \code{Probability} attribute.
 }
 \description{
 Computes Bayesian credible intervals for the model parameters.

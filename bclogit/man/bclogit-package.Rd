@@ -11,8 +11,15 @@ bclogit
 Fits a conditional logistic regression model to incidence data. Allows for use of the concordant pairs in the fitting.
 }
 \references{
-\if{html}{\out{<div class="sourceCode">}}\preformatted{paper to go here
+\if{html}{\out{<div class="sourceCode">}}\preformatted{Jacob Tennenbaum and Adam Kapelner (2026). "Improved Conditional Logistic Regression using Information in Concordant Pairs with Software." arXiv preprint arXiv:2602.08212.
 }\if{html}{\out{</div>}}
+}
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/Tennenbaum-J/bclogit_package_and_paper_repo}
+}
+
 }
 \author{
 \if{html}{\out{<div class="sourceCode">}}\preformatted{	Jacob Tennenbaum \email{Jacob.Tennenbaum51@qmail.cuny.edu}

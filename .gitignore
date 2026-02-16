@@ -1,0 +1,16 @@
+node_modules/
+bclogit.Rcheck/
+*.log
+bclogit_1.0.tar.gz
+.vscode/
+temp.R
+fhs.csv
+check_output.log
+check_output_2.log
+
+# Compiled objects
+*.o
+*.so
+*.dll
+
+# Auto-generated Rcpp files
