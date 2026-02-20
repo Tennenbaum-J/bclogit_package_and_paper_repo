@@ -1,3 +1,4 @@
+#' @return An object of class \code{"bclogit"}.
 #' @export
 #' @describeIn bclogit Formula method
 bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL,

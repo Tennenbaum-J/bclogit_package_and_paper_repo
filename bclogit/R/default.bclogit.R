@@ -1,6 +1,25 @@
 #' @param subset An optional vector specifying a subset of observations.
 #' @param na.action A function which indicates what should happen when the data contain NAs.
 #' @param X A data.frame, data.table, or model.matrix containing the variables.
+#' @return A list of class \code{"bclogit"} containing:
+#'   \item{coefficients}{Estimated coefficients (posterior means).}
+#'   \item{var}{Variance-covariance matrix of the coefficients (posterior covariance).}
+#'   \item{model}{The fitted Stan model object for the discordant pairs.}
+#'   \item{posterior_samples}{Raw posterior samples as a 3D array
+#'     (iterations x chains x parameters) from \code{rstan::extract(model, permuted = FALSE)}.
+#'     Only populated when \code{return_raw_stan_output = TRUE}; \code{NULL} otherwise.}
+#'   \item{concordant_model}{The fitted model object for the concordant pairs (GLM, GEE, or GLMM).}
+#'   \item{matched_data}{The processed matched pairs data from the C++ pre-modeling step.}
+#'   \item{prior_info}{A list with elements \code{mu} (prior mean vector) and \code{Sigma}
+#'     (prior covariance matrix) derived from the concordant pairs model.}
+#'   \item{call}{The function call.}
+#'   \item{terms}{The model terms.}
+#'   \item{xlevels}{Factor level information (always \code{NULL} for this method).}
+#'   \item{n}{Total number of observations.}
+#'   \item{num_discordant}{Number of discordant pairs used for fitting.}
+#'   \item{num_concordant}{Number of concordant pairs used for the prior.}
+#'   \item{X_model_matrix_col_names}{Column names of the covariate model matrix.}
+#'   \item{treatment_name}{Name of the treatment variable.}
 #' @describeIn bclogit Default method for matrix/data input.
 #' @export
 bclogit.default <- function(formula = NULL,

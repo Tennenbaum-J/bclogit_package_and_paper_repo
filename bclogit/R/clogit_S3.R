@@ -18,7 +18,6 @@
 #' @return An object of class \code{"clogit_bclogit"}.
 #' @seealso \code{\link{bclogit}}, \code{\link{summary.clogit_bclogit}}
 #' @examples
-#' \dontrun{
 #' n <- 200
 #' dat <- data.frame(
 #'   y = rbinom(n, 1, 0.5),
@@ -31,7 +30,6 @@
 #' summary(fit)
 #' coef(fit)
 #' vcov(fit)
-#' }
 #' @export
 clogit <- function(formula, data, treatment = NULL, strata = NULL, 
                    subset = NULL, na.action = NULL,

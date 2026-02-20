@@ -18,7 +18,6 @@ Numeric vector of coefficients.
 Extract coefficients from a clogit_bclogit model
 }
 \examples{
-\dontrun{
 n <- 200
 dat <- data.frame(
   y = rbinom(n, 1, 0.5), x1 = rnorm(n),
@@ -27,5 +26,4 @@ dat <- data.frame(
 )
 fit <- clogit(y ~ x1, data = dat, treatment = treatment, strata = strata)
 coef(fit)
-}
 }

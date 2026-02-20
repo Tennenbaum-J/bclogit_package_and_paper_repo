@@ -1,7 +1,7 @@
+#' @return An object of class \code{"clogit_bclogit"}.
 #' @export
 #' @describeIn clogit Formula method
 #' @examples
-#' \dontrun{
 #' n <- 200
 #' dat <- data.frame(
 #'   y = rbinom(n, 1, 0.5),
@@ -13,7 +13,6 @@
 #' # Inference on treatment only (faster):
 #' fit2 <- clogit(y ~ x1, data = dat, treatment = treatment, strata = strata,
 #'                do_inference_on_var = 1)
-#' }
 clogit.formula <- function(formula, data, treatment = NULL, strata = NULL, 
                            subset = NULL, na.action = NULL,
                            do_inference_on_var = "all", ...) {

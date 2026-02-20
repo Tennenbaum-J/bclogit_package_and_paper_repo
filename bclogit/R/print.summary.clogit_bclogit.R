@@ -3,8 +3,8 @@
 #' @param x A \code{summary.clogit_bclogit} object.
 #' @param digits Number of significant digits to print.
 #' @param ... Additional arguments.
+#' @return Invisibly returns \code{x}.
 #' @examples
-#' \dontrun{
 #' n <- 200
 #' dat <- data.frame(
 #'   y = rbinom(n, 1, 0.5), x1 = rnorm(n),
@@ -13,7 +13,6 @@
 #' )
 #' fit <- clogit(y ~ x1, data = dat, treatment = treatment, strata = strata)
 #' print(summary(fit))
-#' }
 #' @export
 print.summary.clogit_bclogit <- function(x, digits = max(3, getOption("digits") - 3), ...) {
     assertClass(x, "summary.clogit_bclogit")

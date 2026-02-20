@@ -13,11 +13,13 @@
 
 \item{...}{Additional arguments.}
 }
+\value{
+Invisibly returns \code{x}.
+}
 \description{
 Print summary of a clogit_bclogit model
 }
 \examples{
-\dontrun{
 n <- 200
 dat <- data.frame(
   y = rbinom(n, 1, 0.5), x1 = rnorm(n),
@@ -26,5 +28,4 @@ dat <- data.frame(
 )
 fit <- clogit(y ~ x1, data = dat, treatment = treatment, strata = strata)
 print(summary(fit))
-}
 }

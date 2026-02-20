@@ -12,7 +12,19 @@
 #'     to see all intervals),
 #'   \code{"CR"} uses equal-tailed credible intervals (quantile-based, C++) with 20 bisection iterations.
 #' @param ... Additional arguments (not used).
-#' @return A `summary.bclogit` object containing coefficients, standard errors, and credible intervals.
+#' @return A list of class \code{"summary.bclogit"} containing:
+#'   \item{call}{The original function call.}
+#'   \item{coefficients}{A matrix with one row per parameter and columns for the posterior mean
+#'     estimate, posterior median estimate, standard error, lower and upper credible interval bounds,
+#'     optionally \code{Rhat} and \code{n_eff} convergence diagnostics (when available from Stan),
+#'     and \code{Pr(tx!=0)} (the Bayesian p-value).}
+#'   \item{num_discordant}{Number of discordant pairs used for fitting.}
+#'   \item{num_concordant}{Number of concordant pairs used for the prior.}
+#'   \item{level}{The credible interval level used.}
+#'   \item{inference_method}{The inference method used for interval and p-value computation.}
+#'   \item{prior_info}{A list with elements \code{mu} and \code{Sigma} describing the prior
+#'     derived from the concordant pairs model.}
+#'   \item{treatment_name}{Name of the treatment variable.}
 #' @export
 summary.bclogit <- function(object, level = 0.95, inference_method = "HPD_one", ...) {
     assertClass(object, "bclogit")

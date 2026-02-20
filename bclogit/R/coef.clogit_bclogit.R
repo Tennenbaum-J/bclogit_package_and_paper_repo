@@ -4,7 +4,6 @@
 #' @param ... Additional arguments.
 #' @return Numeric vector of coefficients.
 #' @examples
-#' \dontrun{
 #' n <- 200
 #' dat <- data.frame(
 #'   y = rbinom(n, 1, 0.5), x1 = rnorm(n),
@@ -13,7 +12,6 @@
 #' )
 #' fit <- clogit(y ~ x1, data = dat, treatment = treatment, strata = strata)
 #' coef(fit)
-#' }
 #' @export
 coef.clogit_bclogit <- function(object, ...) {
     assertClass(object, "clogit_bclogit")

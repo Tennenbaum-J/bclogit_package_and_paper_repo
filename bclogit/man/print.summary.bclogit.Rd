@@ -13,6 +13,9 @@
 
 \item{...}{Additional arguments.}
 }
+\value{
+Invisibly returns \code{x}.
+}
 \description{
 Print summary of a bclogit model
 }

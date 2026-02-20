@@ -1,11 +1,26 @@
+#' @return A list of class \code{"clogit_bclogit"} containing:
+#'   \item{coefficients}{Estimated coefficients (posterior means).}
+#'   \item{var}{Variance-covariance matrix of the coefficients (diagonal, built from standard errors).
+#'     \code{NULL} when \code{do_inference_on_var} is not \code{"all"}.}
+#'   \item{flr_model}{The fitted fast logistic regression model object returned by
+#'     \code{fastLogisticRegressionWrap::fast_logistic_regression}.}
+#'   \item{call}{The function call.}
+#'   \item{terms}{The model terms.}
+#'   \item{n}{Total number of observations.}
+#'   \item{num_discordant}{Number of discordant pairs used for fitting.}
+#'   \item{num_concordant}{Number of concordant pairs.}
+#'   \item{X_model_matrix_col_names}{Column names of the covariate model matrix.}
+#'   \item{treatment_name}{Name of the treatment variable.}
+#'   \item{se}{Standard errors of the coefficients.}
+#'   \item{z}{Z-statistics for each coefficient.}
+#'   \item{pval}{Approximate p-values for each coefficient.}
+#'   \item{do_inference_on_var}{The value of the \code{do_inference_on_var} argument.}
 #' @describeIn clogit Default method for matrix/data input.
 #' @examples
-#' \dontrun{
 #' data("fhs")
 #' fit <- clogit(PREVHYP ~ TOTCHOL + CIGPDAY + BMI + HEARTRTE, 
 #'   data = fhs, treatment = PERIOD, strata = RANDID)
 #' summary(fit)
-#' }
 #' @param subset An optional vector specifying a subset of observations.
 #' @param na.action A function which indicates what should happen when the data contain NAs.
 #' @param do_inference_on_var Which variable(s) to compute standard errors for.

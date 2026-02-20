@@ -98,6 +98,8 @@ Default is 0 (silent). Set to a positive integer (e.g., 1 or 100) to see progres
 \item{call}{Optional call object to store in the result.}
 }
 \value{
+An object of class \code{"bclogit"}.
+
 A list of class \code{bclogit} containing:
 \item{coefficients}{Estimated coefficients (posterior means).}
 \item{var}{Variance-covariance matrix of coefficients.}
@@ -110,6 +112,26 @@ A list of class \code{bclogit} containing:
 \item{terms}{The model terms.}
 \item{num_discordant}{Number of discordant pairs used.}
 \item{num_concordant}{Number of concordant pairs/reservoir entries used.}
+
+A list of class \code{"bclogit"} containing:
+\item{coefficients}{Estimated coefficients (posterior means).}
+\item{var}{Variance-covariance matrix of the coefficients (posterior covariance).}
+\item{model}{The fitted Stan model object for the discordant pairs.}
+\item{posterior_samples}{Raw posterior samples as a 3D array
+(iterations x chains x parameters) from \code{rstan::extract(model, permuted = FALSE)}.
+Only populated when \code{return_raw_stan_output = TRUE}; \code{NULL} otherwise.}
+\item{concordant_model}{The fitted model object for the concordant pairs (GLM, GEE, or GLMM).}
+\item{matched_data}{The processed matched pairs data from the C++ pre-modeling step.}
+\item{prior_info}{A list with elements \code{mu} (prior mean vector) and \code{Sigma}
+(prior covariance matrix) derived from the concordant pairs model.}
+\item{call}{The function call.}
+\item{terms}{The model terms.}
+\item{xlevels}{Factor level information (always \code{NULL} for this method).}
+\item{n}{Total number of observations.}
+\item{num_discordant}{Number of discordant pairs used for fitting.}
+\item{num_concordant}{Number of concordant pairs used for the prior.}
+\item{X_model_matrix_col_names}{Column names of the covariate model matrix.}
+\item{treatment_name}{Name of the treatment variable.}
 }
 \description{
 This function fits a Bayesian conditional logistic regression model, incorporating
@@ -123,7 +145,7 @@ information from concordant pairs to improve estimation.
 
 }}
 \examples{
-\dontrun{
+\donttest{
 # Example usage
 data("fhs")
 fit <- bclogit(PREVHYP ~ TOTCHOL + CIGPDAY + BMI + HEARTRTE, 

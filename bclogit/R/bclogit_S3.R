@@ -38,7 +38,7 @@
 #' @seealso \code{\link{summary.bclogit}}, \code{\link{confint.bclogit}},
 #' \code{\link{vcov.bclogit}}, \code{\link{coef.bclogit}}
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Example usage
 #' data("fhs")
 #' fit <- bclogit(PREVHYP ~ TOTCHOL + CIGPDAY + BMI + HEARTRTE, 

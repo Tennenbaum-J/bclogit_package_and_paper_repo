@@ -3,6 +3,7 @@
 #' @param x A `summary.bclogit` object.
 #' @param digits Number of significant digits to print.
 #' @param ... Additional arguments.
+#' @return Invisibly returns \code{x}.
 #' @export
 print.summary.bclogit <- function(x, digits = max(3, getOption("digits") - 3), ...) {
     cat("\nCall:\n")

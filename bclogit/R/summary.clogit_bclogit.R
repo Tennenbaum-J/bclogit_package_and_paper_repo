@@ -2,7 +2,15 @@
 #'
 #' @param object A \code{clogit_bclogit} object.
 #' @param ... Additional arguments (not used).
-#' @return A \code{summary.clogit_bclogit} object.
+#' @return A list of class \code{"summary.clogit_bclogit"} containing:
+#'   \item{call}{The original function call.}
+#'   \item{coefficients}{A matrix with one row per parameter and columns \code{Estimate},
+#'     \code{Std. Error}, \code{z value}, and \code{Pr(>|z|)}.}
+#'   \item{num_discordant}{Number of discordant pairs used for fitting.}
+#'   \item{num_concordant}{Number of concordant pairs.}
+#'   \item{n}{Total number of observations.}
+#'   \item{treatment_name}{Name of the treatment variable.}
+#'   \item{do_inference_on_var}{The value of the \code{do_inference_on_var} argument.}
 #' @export
 summary.clogit_bclogit <- function(object, ...) {
     assertClass(object, "clogit_bclogit")
