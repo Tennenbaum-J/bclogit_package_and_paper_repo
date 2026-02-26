@@ -51,7 +51,7 @@ bclogit.default <- function(formula = NULL,
 
   # Use copy of X if needed or just use X directly
   if (test_data_frame(X, types = c("numeric", "integer", "factor", "logical"))) {
-    data_mat <- model.matrix(~ ., data = X)
+    data_mat <- model.matrix(~., data = X)
     if ("(Intercept)" %in% colnames(data_mat)) {
       data_mat <- data_mat[, colnames(data_mat) != "(Intercept)", drop = FALSE]
     }
@@ -103,7 +103,7 @@ bclogit.default <- function(formula = NULL,
   strata_counts <- table(strata)
   valid_strata <- names(strata_counts)[strata_counts == 2]
   keep_idx <- strata %in% as.numeric(valid_strata)
-  
+
   if (!all(keep_idx)) {
     y <- y[keep_idx]
     data_mat <- data_mat[keep_idx, , drop = FALSE]
@@ -225,7 +225,11 @@ bclogit.default <- function(formula = NULL,
       }
 
       # Identify target names: treatment + X columns
-      target_names <- c("treatment_concordant", paste0("X_concordant", X_model_matrix_col_names))
+      if (ncol(X_concordant) == 1) {
+        target_names <- c("treatment_concordant", "X_concordant")
+      } else {
+        target_names <- c("treatment_concordant", paste0("X_concordant", X_model_matrix_col_names))
+      }
 
       # Construct target vector
       K_stan <- ncol(X_diffs_discordant) + 1
@@ -468,4 +472,3 @@ bclogit.default <- function(formula = NULL,
   class(res) <- c("bclogit", "list")
   return(res)
 }
-
