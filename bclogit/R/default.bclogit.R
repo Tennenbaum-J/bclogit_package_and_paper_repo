@@ -96,7 +96,15 @@ bclogit.default <- function(formula = NULL,
     stop("Treatment must be binary 0 or 1.")
   }
   if (is.null(treatment_name)) {
-    treatment_name <- paste(deparse(substitute(treatment)), collapse = "")
+    orig_trt <- substitute(treatment)
+    if (is.name(orig_trt)) {
+      treatment_name <- as.character(orig_trt)
+    } else {
+      treatment_name <- paste(deparse(orig_trt), collapse = "")
+      if (nchar(treatment_name) > 30 || grepl("^c\\(", treatment_name) || grepl("^[0-9\\.\\-]+", treatment_name)) {
+        treatment_name <- "treatment"
+      }
+    }
   }
 
   # Filter to keep only strata with exactly 2 observations
@@ -189,7 +197,6 @@ bclogit.default <- function(formula = NULL,
     }
     if (concordant_method == "GEE") {
       gee_df <- data.frame(y_concordant, treatment_concordant, strata_concordant)
-      gee_df$X_concordant <- X_concordant
       concordant_model <- geepack::geeglm(
         y_concordant ~ treatment_concordant + X_concordant,
         id = strata_concordant,

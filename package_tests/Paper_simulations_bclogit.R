@@ -9,7 +9,7 @@ if (!require("bclogit", character.only = TRUE)) {
 
 ############### VARIABLES ###############
 
-num_cores <- availableCores() - 4
+num_cores <- availableCores() - 2
 ps <- c(6) # number of covariates
 Nsim <- 100 # number of simulations per block of simulations
 external_nsim <- 100 # number of blocks of simulations
@@ -54,11 +54,61 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_function, regress_on
     )
     X_con <- matched_data$X_concordant
     y_con <- matched_data$y_concordant
+    w_con <- matched_data$treatment_concordant
     X_dis <- matched_data$X_diffs_discordant
     y_dis <- matched_data$y_diffs_discordant
+    w_dis <- matched_data$treatment_diffs_discordant
+    dis_idx <- matched_data$discordant_idx + 1
 
     discordant_viable <- if (length(y_dis) > ncol(X) + 7) TRUE else FALSE
     concordant_viable <- if (length(y_con) > ncol(X) + 7) TRUE else FALSE
+
+    ########################### CLOGIT  ###########################
+    beta_hat_T <- NA
+    ssq_beta_hat_T <- NA
+    pval <- NA
+    if (discordant_viable) {
+        y_dis_0_1 <- ifelse(y_dis == -1, 0, 1)
+        model <- summary(glm(y_dis_0_1 ~ 0 + w_dis + X_dis, family = "binomial"))$coefficients[1, c(1, 2)]
+        beta_hat_T <- model[1]
+        ssq_beta_hat_T <- model[2]
+        pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
+    }
+    res <- rbind(res, data.frame(
+        n = n,
+        p = p,
+        beta_T = beta_T,
+        true_function = true_function,
+        regress_on_X = regress_on_X,
+        inference = "clogit",
+        beta_hat_T = beta_hat_T,
+        ssq_beta_hat_T = ssq_beta_hat_T,
+        pval = pval,
+        g = NA
+    ))
+
+    ########################### LOGIT  ###########################
+    beta_hat_T <- NA
+    ssq_beta_hat_T <- NA
+    pval <- NA
+    if (TRUE) {
+        model <- summary(glm(y ~ w + X, family = "binomial"))$coefficients[2, c(1, 2)]
+        beta_hat_T <- model[1]
+        ssq_beta_hat_T <- model[2]
+        pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
+    }
+    res <- rbind(res, data.frame(
+        n = n,
+        p = p,
+        beta_T = beta_T,
+        true_function = true_function,
+        regress_on_X = regress_on_X,
+        inference = "GLM",
+        beta_hat_T = beta_hat_T,
+        ssq_beta_hat_T = ssq_beta_hat_T,
+        pval = pval,
+        g = NA
+    ))
 
     ########################### BAYESIAN ###########################
     for (prior_type in c("Naive", "G prior", "PMP", "Hybrid")) {
@@ -129,9 +179,77 @@ Do_Inference <- function(y, X, w, strat, p, beta_T, n, true_function, regress_on
             ))
         }
     }
+    ########################### glmmTMB  ###########################
+    beta_hat_T <- NA
+    ssq_beta_hat_T <- NA
+    pval <- NA
+    tryCatch(
+        {
+            fit_tmb <- glmmTMB(
+                y ~ X + w + (1 | strat),
+                family = binomial(),
+                data   = data.frame(y, X, w, strat)
+            )
+            model <- summary(fit_tmb)$coefficients$cond["w", c("Estimate", "Std. Error")]
+            beta_hat_T <- model[1]
+            ssq_beta_hat_T <- model[2]
+            pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
+        },
+        error = function(e) {
+            beta_hat_T <<- NA
+            ssq_beta_hat_T <<- NA
+            pval <<- NA
+        }
+    )
+    res <- rbind(res, data.frame(
+        n = n,
+        p = p,
+        beta_T = beta_T,
+        true_function = true_function,
+        regress_on_X = regress_on_X,
+        inference = "GLMM",
+        beta_hat_T = beta_hat_T,
+        ssq_beta_hat_T = ssq_beta_hat_T,
+        pval = pval,
+        g = NA
+    ))
 
-    rownames(res) <- NULL
-    return(res)
+    ########################### GEE  ###########################
+    beta_hat_T <- NA
+    ssq_beta_hat_T <- NA
+    pval <- NA
+    tryCatch(
+        {
+            fit_gee <- geeglm(
+                y ~ X + w,
+                id = strat,
+                family = binomial(link = "logit"),
+                corstr = "exchangeable",
+                data = data.frame(y, X, w, strat)
+            )
+            model <- summary(fit_gee)$coefficients["w", c("Estimate", "Std.err")]
+            beta_hat_T <- as.numeric(model[1])
+            ssq_beta_hat_T <- as.numeric(model[2])
+            pval <- 2 * pnorm(min(c(-1, 1) * (beta_hat_T / ssq_beta_hat_T)))
+        },
+        error = function(e) {
+            beta_hat_T <<- NA
+            ssq_beta_hat_T <<- NA
+            pval <<- NA
+        }
+    )
+    res <- rbind(res, data.frame(
+        n = n,
+        p = p,
+        beta_T = beta_T,
+        true_function = true_function,
+        regress_on_X = regress_on_X,
+        inference = "GEE",
+        beta_hat_T = beta_hat_T,
+        ssq_beta_hat_T = ssq_beta_hat_T,
+        pval = pval,
+        g = NA
+    ))
 }
 
 # simulate the data
@@ -181,15 +299,15 @@ Run_sim <- function(p, beta_T, n) {
 
 
 
-# for (j in 1:120) {
-#     cat("################", j, "################\n")
-#     p <- params[j, ]$p
-#     beta_T <- params[j, ]$beta_T
-#     n <- params[j, ]$n
-#     X_style <- params[j, ]$X_style
-#     print(Run_sim(p = p, beta_T = beta_T, n = n))
-#     cat("\n")
-# }
+for (j in 1:120) {
+    cat("################", j, "################\n")
+    p <- params[j, ]$p
+    beta_T <- params[j, ]$beta_T
+    n <- params[j, ]$n
+    X_style <- params[j, ]$X_style
+    print(Run_sim(p = p, beta_T = beta_T, n = n))
+    cat("\n")
+}
 
 ############### SIM ###############
 
@@ -198,7 +316,7 @@ handlers("txtprogressbar")
 registerDoFuture()
 plan(multisession, workers = num_cores)
 
-for (e_nsim in 82:external_nsim) {
+for (e_nsim in 1:external_nsim) {
     with_progress({
         prog <- progressor(along = 1:nrow(params))
 
@@ -229,10 +347,10 @@ for (e_nsim in 82:external_nsim) {
         }
     })
 
-    if (!dir.exists("C:/temp/new_sims_2_23")) {
-        dir.create("C:/temp/new_sims_2_23", recursive = TRUE)
+    if (!dir.exists("C:/temp/simulations")) {
+        dir.create("C:/temp/simulations", recursive = TRUE)
     }
-    write.csv(results, file = paste0("C:/temp/new_sims_2_23/", Nsim, "_", e_nsim, ".csv"), row.names = FALSE)
+    write.csv(results, file = paste0("C:/temp/simulations/", Nsim, "_", e_nsim, ".csv"), row.names = FALSE)
     rm(results)
     gc()
 }
@@ -241,9 +359,9 @@ plan(sequential)
 
 ############### COMPILE RESULTS ###############
 
-results <- read.csv("C:/temp/new_sims_2_23/100_1.csv")
+results <- read.csv("C:/temp/simulations/100_1.csv")
 for (i in 2:101) {
-    file_path <- paste0("C:/temp/new_sims_2_23/100_", i, ".csv")
+    file_path <- paste0("C:/temp/simulations/100_", i, ".csv")
     if (file.exists(file_path)) {
         message("Reading file ", i)
         temp <- read.csv(file_path)
@@ -275,7 +393,7 @@ res_mod <- results %>%
         .groups = "drop"
     )
 
-write.csv(res_mod, file = "C:/temp/new_sims_2_23/combined.csv", row.names = FALSE)
+write.csv(res_mod, file = "C:/temp/simulations/combined.csv", row.names = FALSE)
 
 ############### REAL DATA ###############
 
@@ -286,6 +404,7 @@ cols_to_check <- c("CIGPDAY", "BMI", "HEARTRTE", "TOTCHOL", "SYSBP", "DIABP", "C
 for (col in cols_to_check) {
     D <- D[!is.na(get(col))]
 }
+D <- D[!is.na(PREVCHD)]
 
 Dba <- D[PERIOD %in% c(1, 3)]
 Dba[, num_periods_per_id := .N, by = RANDID]
@@ -384,5 +503,7 @@ for (prior_type in c("Naive", "G prior", "PMP", "Hybrid")) {
             ssq_beta_hat_T = ssq_beta_hat_T,
             pval = pval_cr
         ))
+        
+        print(res)
     }
 }

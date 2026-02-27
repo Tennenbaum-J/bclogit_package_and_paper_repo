@@ -17,7 +17,7 @@ bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL,
     cl <- cl[c(1L, m)]
     cl[[1L]] <- quote(stats::model.frame)
     mf <- eval(cl, parent.frame())
-    
+
     response <- model.response(mf, "numeric")
     mt <- attr(mf, "terms")
     X <- model.matrix(mt, mf)
@@ -35,7 +35,8 @@ bclogit.formula <- function(formula, data, treatment = NULL, strata = NULL,
     # Extract treatment name from call
     full_cl <- match.call()
     if ("treatment" %in% names(full_cl)) {
-        t_name <- deparse(full_cl$treatment)
+        t_name <- paste(deparse(full_cl$treatment), collapse = "")
+        if (nchar(t_name) > 30) t_name <- "treatment"
     } else {
         t_name <- "treatment"
     }
