@@ -12,8 +12,20 @@
 \item{...}{Additional arguments.}
 }
 \value{
-The formula used in the model.
+The \code{formula} used in the model, or \code{NULL} when the model was
+fitted via the default (matrix) interface.
 }
 \description{
 Extract model formula
+}
+\examples{
+\donttest{
+data("fhs")
+fit <- bclogit(PREVHYP ~ TOTCHOL + BMI, data = fhs,
+               treatment = PERIOD, strata = RANDID)
+formula(fit)
+}
+}
+\seealso{
+\code{\link{bclogit}}
 }

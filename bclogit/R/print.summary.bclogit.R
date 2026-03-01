@@ -4,6 +4,14 @@
 #' @param digits Number of significant digits to print.
 #' @param ... Additional arguments.
 #' @return Invisibly returns \code{x}.
+#' @seealso \code{\link{summary.bclogit}}, \code{\link{confint.bclogit}}
+#' @examples
+#' \donttest{
+#' data("fhs")
+#' fit <- bclogit(PREVHYP ~ TOTCHOL + BMI, data = fhs,
+#'                treatment = PERIOD, strata = RANDID)
+#' print(summary(fit))
+#' }
 #' @export
 print.summary.bclogit <- function(x, digits = max(3, getOption("digits") - 3), ...) {
     cat("\nCall:\n")

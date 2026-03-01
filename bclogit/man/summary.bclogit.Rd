@@ -41,3 +41,7 @@ derived from the concordant pairs model.}
 \description{
 Summarize a bclogit model
 }
+\seealso{
+\code{\link{print.summary.bclogit}}, \code{\link{confint.bclogit}},
+\code{\link{coef.bclogit}}, \code{\link{vcov.bclogit}}
+}

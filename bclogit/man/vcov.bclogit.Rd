@@ -12,8 +12,20 @@
 \item{...}{Additional arguments.}
 }
 \value{
-A matrix of the estimated covariance of the coefficients.
+A square matrix of the posterior covariance of the coefficients,
+derived from the MCMC samples.
 }
 \description{
 Extract variance-covariance matrix from a bclogit model
+}
+\examples{
+\donttest{
+data("fhs")
+fit <- bclogit(PREVHYP ~ TOTCHOL + BMI, data = fhs,
+               treatment = PERIOD, strata = RANDID)
+vcov(fit)
+}
+}
+\seealso{
+\code{\link{coef.bclogit}}, \code{\link{summary.bclogit}}
 }

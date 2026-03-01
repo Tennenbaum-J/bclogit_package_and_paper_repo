@@ -144,6 +144,72 @@ information from concordant pairs to improve estimation.
 \item \code{bclogit(default)}: Default method for matrix/data input.
 
 }}
+\section{Numerical Stability in GEE Pre-modeling}{
+
+When \code{concordant_method = "GEE"}, the function applies a layered set of
+safeguards to ensure the prior covariance \code{Sigma_con} passed to Stan is
+valid (positive definite, symmetric, and free of \code{NA} values).
+
+\describe{
+\item{Naive (model-based) covariance}{
+GEE's default covariance is the sandwich (robust) estimator, which can
+produce degenerate (e.g. negative) variances when the number of independent
+clusters is small. The code instead uses \code{geese$vbeta.naiv}, the
+model-based covariance that assumes the working correlation structure is
+exactly correct. It is less efficient asymptotically but always
+well-structured for small samples.
+}
+\item{Cholesky positive-definiteness check}{
+After extracting the covariance, a Cholesky decomposition is attempted
+via \code{tryCatch(chol(Sigma_con), ...)}. This is the canonical test for
+positive definiteness: it succeeds if and only if the matrix is PD. A
+failed decomposition sets an \code{is_pd = FALSE} flag without crashing
+the call.
+}
+\item{GLM fallback for non-PD GEE or GLMM covariance}{
+If the GEE naive covariance or the GLMM fixed-effect \code{vcov} is still
+not positive definite (GLMM failures are common with boundary variance
+estimates or convergence issues), a standard
+\code{glm(..., family = binomial)} is re-fitted on the same concordant
+data and its Fisher-information-based \code{vcov} is used instead. That
+matrix is always PD for a non-degenerate design matrix, providing a
+graceful degradation from GEE/GLMM to GLM.
+}
+\item{Symmetrization}{
+\code{Sigma_con <- (Sigma_con + t(Sigma_con)) / 2} is applied after
+the GLM fallback re-extraction and again unconditionally before the matrix
+is passed to Stan. Name-indexed covariance matching can introduce tiny
+floating-point asymmetries; averaging with the transpose enforces exact
+symmetry as required by Stan's Cholesky-based samplers.
+}
+\item{NA sanitization}{
+Aliased model terms (collinear columns in the concordant data) cause
+\code{coef()} and \code{vcov()} to return \code{NA}. These are caught
+before Stan sees them: \code{NA} entries in the prior mean vector default
+to \code{0} (a neutral prior), and any \code{NA} in the covariance matrix
+triggers replacement of the entire matrix with a wide diagonal
+(\code{diag(100, p)}), an uninformative but valid prior.
+}
+\item{Diffuse prior fallback}{
+Multiple failure paths (too few concordant pairs, persistent non-PD
+matrix, \code{NA}-contaminated covariance) fall back to
+\code{diag(100, p)}, which is positive definite by construction and
+encodes a broad, independent prior that lets the discordant-pair
+likelihood dominate.
+}
+\item{Treatment prior reset}{
+After extracting the concordant-model covariance, the entire first row
+and column (corresponding to the treatment coefficient) are zeroed and
+the diagonal entry is set to \code{prior_variance_treatment} (default
+100). This decouples the treatment prior from the nuisance-covariate
+prior: concordant pairs inform covariate shrinkage but are not allowed to
+shrink the treatment coefficient, which remains independently diffuse.
+Zeroing the off-diagonals also eliminates any spurious prior correlation
+between treatment and covariates induced by the concordant-model fit.
+}
+}
+}
+
 \examples{
 \donttest{
 # Example usage

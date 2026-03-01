@@ -25,6 +25,8 @@
 #'   \item{prior_info}{A list with elements \code{mu} and \code{Sigma} describing the prior
 #'     derived from the concordant pairs model.}
 #'   \item{treatment_name}{Name of the treatment variable.}
+#' @seealso \code{\link{print.summary.bclogit}}, \code{\link{confint.bclogit}},
+#'   \code{\link{coef.bclogit}}, \code{\link{vcov.bclogit}}
 #' @export
 summary.bclogit <- function(object, level = 0.95, inference_method = "HPD_one", ...) {
     assertClass(object, "bclogit")

@@ -25,3 +25,6 @@ The matrix has a \code{Probability} attribute.
 \description{
 Computes Bayesian credible intervals for the model parameters.
 }
+\seealso{
+\code{\link{summary.bclogit}}, \code{\link{coef.bclogit}}
+}

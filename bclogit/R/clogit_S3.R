@@ -14,9 +14,16 @@
 #' @param na.action A function which indicates what should happen when the data contain NAs. 
 #' @param treatment_name Optional string name for the treatment variable.
 #' @param call Optional call object to store in the result.
-#' @param ... Additional arguments passed to methods.
+#' @param do_inference_on_var Which variable(s) to compute standard errors for.
+#'   \code{"all"} (default) computes SEs for all coefficients. An integer \code{j}
+#'   computes the SE only for the \code{j}th coefficient (1 = treatment, then covariates
+#'   in order). \code{"none"} skips inference entirely.
+#' @param ... Additional arguments passed to
+#'   \code{fastLogisticRegressionWrap::fast_logistic_regression} (e.g., convergence
+#'   tolerances).
 #' @return An object of class \code{"clogit_bclogit"}.
-#' @seealso \code{\link{bclogit}}, \code{\link{summary.clogit_bclogit}}
+#' @seealso \code{\link{bclogit}}, \code{\link{summary.clogit_bclogit}},
+#'   \code{\link{coef.clogit_bclogit}}, \code{\link{vcov.clogit_bclogit}}
 #' @examples
 #' n <- 200
 #' dat <- data.frame(

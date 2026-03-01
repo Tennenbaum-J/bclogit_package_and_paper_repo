@@ -2,7 +2,16 @@
 #'
 #' @param object A `bclogit` object.
 #' @param ... Additional arguments.
-#' @return A matrix of the estimated covariance of the coefficients.
+#' @return A square matrix of the posterior covariance of the coefficients,
+#'   derived from the MCMC samples.
+#' @seealso \code{\link{coef.bclogit}}, \code{\link{summary.bclogit}}
+#' @examples
+#' \donttest{
+#' data("fhs")
+#' fit <- bclogit(PREVHYP ~ TOTCHOL + BMI, data = fhs,
+#'                treatment = PERIOD, strata = RANDID)
+#' vcov(fit)
+#' }
 #' @export
 vcov.bclogit <- function(object, ...) {
     object$var

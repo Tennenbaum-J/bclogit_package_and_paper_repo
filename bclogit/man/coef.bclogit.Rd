@@ -12,8 +12,19 @@
 \item{...}{Additional arguments.}
 }
 \value{
-Numeric vector of coefficients.
+Named numeric vector of posterior mean coefficients.
 }
 \description{
 Extract coefficients from a bclogit model
+}
+\examples{
+\donttest{
+data("fhs")
+fit <- bclogit(PREVHYP ~ TOTCHOL + BMI, data = fhs,
+               treatment = PERIOD, strata = RANDID)
+coef(fit)
+}
+}
+\seealso{
+\code{\link{vcov.bclogit}}, \code{\link{summary.bclogit}}
 }

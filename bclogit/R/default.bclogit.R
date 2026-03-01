@@ -341,6 +341,39 @@ bclogit.default <- function(formula = NULL,
           Sigma_con[, 1] <- 0
           Sigma_con[1, 1] <- prior_variance_treatment
           Sigma_con <- (Sigma_con + t(Sigma_con)) / 2
+        } else if (concordant_method == "GLMM") {
+          warning("GLMM prior covariance is not positive definite (common with boundary variance estimates or convergence failures). Falling back to GLM covariance for the prior.")
+          glm_fallback <- glm(y_concordant ~ treatment_concordant + X_concordant, family = "binomial")
+          full_b_fb <- coef(glm_fallback)
+          full_S_fb <- vcov(glm_fallback)
+          b_con <- numeric(K_stan)
+          Sigma_con <- diag(100, K_stan)
+          for (i in seq_along(target_names)) {
+            t_name <- target_names[i]
+            if (t_name %in% names(full_b_fb)) {
+              val <- full_b_fb[t_name]
+              if (!is.na(val)) b_con[i] <- val
+            }
+          }
+          vcov_names_fb <- rownames(full_S_fb)
+          valid_names_fb <- names(full_b_fb)[names(full_b_fb) %in% target_names]
+          for (r_name in valid_names_fb) {
+            if (r_name %in% vcov_names_fb) {
+              target_idx_r <- match(r_name, target_names)
+              for (c_name in valid_names_fb) {
+                if (c_name %in% vcov_names_fb) {
+                  target_idx_c <- match(c_name, target_names)
+                  val <- full_S_fb[r_name, c_name]
+                  if (!is.na(val)) Sigma_con[target_idx_r, target_idx_c] <- val
+                }
+              }
+            }
+          }
+          b_con[1] <- 0
+          Sigma_con[1, ] <- 0
+          Sigma_con[, 1] <- 0
+          Sigma_con[1, 1] <- prior_variance_treatment
+          Sigma_con <- (Sigma_con + t(Sigma_con)) / 2
         } else {
           warning("Prior covariance is not positive definite. Replacing with independent and diffuse prior.")
           Sigma_con <- diag(100, nrow(Sigma_con))

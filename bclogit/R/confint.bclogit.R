@@ -10,6 +10,7 @@
 #' @return A matrix with columns \code{lower} and \code{upper}.
 #'   For \code{"HPD_many"}, a parameter may appear on multiple rows when the interval is disjoint.
 #'   The matrix has a \code{Probability} attribute.
+#' @seealso \code{\link{summary.bclogit}}, \code{\link{coef.bclogit}}
 #' @export
 confint.bclogit <- function(object, parm, level = 0.95, type = c("HPD_one", "CR", "HPD_many"), ...) {
     type <- match.arg(type)

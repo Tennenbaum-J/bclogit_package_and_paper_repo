@@ -1,3 +1,16 @@
+#' @param formula For the formula method, a symbolic description of the model.
+#'   For the default method, pass \code{NULL} and supply \code{y} and \code{X} directly.
+#' @param data A data frame containing the variables (used by the formula method).
+#' @param y For the default method, a binary (0, 1) numeric response vector of length \code{n}.
+#' @param X For the default method, a numeric matrix, data frame, or data table of covariates
+#'   (excluding treatment and intercept) with \code{n} rows.
+#' @param treatment Binary (0/1) numeric vector of length \code{n} identifying treatment assignment.
+#' @param strata Numeric or factor vector of length \code{n} identifying the matched pair (stratum)
+#'   for each observation. Only strata with exactly two observations are retained.
+#' @param treatment_name Optional character string used as the name of the treatment coefficient
+#'   in output. Inferred from the call when \code{NULL}.
+#' @param call Optional call object stored in the returned result. Used internally by the
+#'   formula method to preserve the original user-facing call.
 #' @return A list of class \code{"clogit_bclogit"} containing:
 #'   \item{coefficients}{Estimated coefficients (posterior means).}
 #'   \item{var}{Variance-covariance matrix of the coefficients (diagonal, built from standard errors).

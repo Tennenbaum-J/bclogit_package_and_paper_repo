@@ -62,7 +62,9 @@ clogit(
 computes the SE only for the \code{j}th coefficient (1 = treatment, then covariates
 in order). \code{"none"} skips inference entirely.}
 
-\item{...}{Additional arguments passed to methods.}
+\item{...}{Additional arguments passed to
+\code{fastLogisticRegressionWrap::fast_logistic_regression} (e.g., convergence
+tolerances).}
 
 \item{y}{For the default method, a binary (0,1) response vector.}
 
@@ -137,5 +139,6 @@ coef(fit)
 vcov(fit)
 }
 \seealso{
-\code{\link{bclogit}}, \code{\link{summary.clogit_bclogit}}
+\code{\link{bclogit}}, \code{\link{summary.clogit_bclogit}},
+\code{\link{coef.clogit_bclogit}}, \code{\link{vcov.clogit_bclogit}}
 }

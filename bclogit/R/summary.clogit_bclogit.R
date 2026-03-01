@@ -11,6 +11,18 @@
 #'   \item{n}{Total number of observations.}
 #'   \item{treatment_name}{Name of the treatment variable.}
 #'   \item{do_inference_on_var}{The value of the \code{do_inference_on_var} argument.}
+#' @seealso \code{\link{clogit}}, \code{\link{print.summary.clogit_bclogit}},
+#'   \code{\link{coef.clogit_bclogit}}, \code{\link{vcov.clogit_bclogit}}
+#' @examples
+#' n <- 200
+#' dat <- data.frame(
+#'   y = rbinom(n, 1, 0.5),
+#'   x1 = rnorm(n),
+#'   treatment = rep(c(0, 1), n / 2),
+#'   strata = rep(seq_len(n / 2), each = 2)
+#' )
+#' fit <- clogit(y ~ x1, data = dat, treatment = treatment, strata = strata)
+#' summary(fit)
 #' @export
 summary.clogit_bclogit <- function(object, ...) {
     assertClass(object, "clogit_bclogit")

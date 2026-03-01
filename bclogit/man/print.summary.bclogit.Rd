@@ -19,3 +19,14 @@ Invisibly returns \code{x}.
 \description{
 Print summary of a bclogit model
 }
+\examples{
+\donttest{
+data("fhs")
+fit <- bclogit(PREVHYP ~ TOTCHOL + BMI, data = fhs,
+               treatment = PERIOD, strata = RANDID)
+print(summary(fit))
+}
+}
+\seealso{
+\code{\link{summary.bclogit}}, \code{\link{confint.bclogit}}
+}
